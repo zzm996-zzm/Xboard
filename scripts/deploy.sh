@@ -14,6 +14,7 @@ COMPOSE=($COMPOSE_BIN -f "$COMPOSE_FILE" --project-directory "$ROOT_DIR")
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@admin.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 APP_URL="${APP_URL:-http://localhost:7001}"
+FORCE_INSTALL="${FORCE_INSTALL:-0}"
 
 set_env() {
   local key="$1"
@@ -36,16 +37,29 @@ if [[ ! -f .env ]]; then
 fi
 echo "==> Using compose file: $COMPOSE_FILE"
 
-if ! grep -q '^INSTALLED=true' .env 2>/dev/null; then
+set_env APP_URL "$APP_URL"
+set_env DB_CONNECTION mysql
+set_env DB_HOST mysql
+set_env DB_PORT 3306
+set_env DB_DATABASE xboard
+set_env DB_USERNAME root
+set_env DB_PASSWORD xboard123
+set_env CACHE_DRIVER redis
+set_env QUEUE_CONNECTION redis
+set_env REDIS_HOST 127.0.0.1
+set_env REDIS_PORT 6379
+set_env REDIS_PASSWORD null
+
+echo "==> Starting database"
+"${COMPOSE[@]}" up -d mysql
+
+if [[ "$FORCE_INSTALL" == "1" ]] || ! grep -q '^INSTALLED=true' .env 2>/dev/null; then
   echo "==> Installing Xboard with Docker Compose"
   "${COMPOSE[@]}" run --rm \
-    -e ENABLE_SQLITE=true \
     -e ENABLE_REDIS=true \
     -e ADMIN_ACCOUNT="$ADMIN_EMAIL" \
     xboard php artisan xboard:install
 fi
-
-set_env APP_URL "$APP_URL"
 
 echo "==> Starting services"
 "${COMPOSE[@]}" up -d

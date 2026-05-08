@@ -17,6 +17,18 @@ services:
       - RESOURCE_PROFILE=balanced
       - ENABLE_HORIZON=true
       - docker=true
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: xboard123
+      MYSQL_DATABASE: xboard
+    volumes:
+      - mysql-data:/var/lib/mysql
 
 volumes:
   redis-data:
+  mysql-data:
