@@ -12,7 +12,6 @@ services:
       - ./storage/logs:/www/storage/logs
       - ./storage/theme:/www/storage/theme
       - ./plugins:/www/plugins
-      - redis-data:/data
     environment:
       - RESOURCE_PROFILE=balanced
       - ENABLE_HORIZON=true

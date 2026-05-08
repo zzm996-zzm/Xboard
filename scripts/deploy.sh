@@ -31,24 +31,28 @@ set_env() {
   mv "$tmp" .env
 }
 
+configure_runtime_env() {
+  set_env APP_URL "$APP_URL"
+  set_env DB_CONNECTION mysql
+  set_env DB_HOST mysql
+  set_env DB_PORT 3306
+  set_env DB_DATABASE xboard
+  set_env DB_USERNAME root
+  set_env DB_PASSWORD xboard123
+  set_env CACHE_DRIVER redis
+  set_env QUEUE_CONNECTION redis
+  set_env REDIS_HOST redis
+  set_env REDIS_PORT 6379
+  set_env REDIS_PASSWORD null
+}
+
 echo "==> Preparing .env"
 if [[ ! -f .env ]]; then
   cp .env.example .env
 fi
 echo "==> Using compose file: $COMPOSE_FILE"
 
-set_env APP_URL "$APP_URL"
-set_env DB_CONNECTION mysql
-set_env DB_HOST mysql
-set_env DB_PORT 3306
-set_env DB_DATABASE xboard
-set_env DB_USERNAME root
-set_env DB_PASSWORD xboard123
-set_env CACHE_DRIVER redis
-set_env QUEUE_CONNECTION redis
-set_env REDIS_HOST redis
-set_env REDIS_PORT 6379
-set_env REDIS_PASSWORD null
+configure_runtime_env
 
 echo "==> Starting database and cache"
 "${COMPOSE[@]}" up -d mysql redis
@@ -89,6 +93,7 @@ if [[ "$FORCE_INSTALL" == "1" ]] || ! grep -q '^INSTALLED=true' .env 2>/dev/null
     -e ENABLE_REDIS=true \
     -e ADMIN_ACCOUNT="$ADMIN_EMAIL" \
     xboard php artisan xboard:install
+  configure_runtime_env
 fi
 
 echo "==> Starting services"
@@ -101,6 +106,9 @@ if [[ -n "$ADMIN_PASSWORD" ]]; then
   echo "==> Applying admin account password"
   ADMIN_EMAIL="$ADMIN_EMAIL" ADMIN_PASSWORD="$ADMIN_PASSWORD" "$ROOT_DIR/scripts/init-admin.sh"
 fi
+
+echo "==> Restarting Xboard with fresh config"
+"${COMPOSE[@]}" restart xboard >/dev/null
 
 echo
 echo "Done."
