@@ -5,16 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 COMPOSE_BIN="${COMPOSE_BIN:-docker compose}"
-COMPOSE_FILE="${COMPOSE_FILE:-}"
-if [[ -z "$COMPOSE_FILE" ]]; then
-  if [[ -f "$ROOT_DIR/docker-compose.yml" ]]; then
-    COMPOSE_FILE="$ROOT_DIR/docker-compose.yml"
-  elif [[ -f "$ROOT_DIR/compose.sample.yaml" ]]; then
-    COMPOSE_FILE="$ROOT_DIR/compose.sample.yaml"
-  else
-    echo "No compose file found. Expected docker-compose.yml or compose.sample.yaml." >&2
-    exit 1
-  fi
+COMPOSE_FILE="$ROOT_DIR/compose.yaml"
+if [[ ! -f "$COMPOSE_FILE" ]]; then
+  echo "Missing $COMPOSE_FILE. Pull the dev branch before deploying." >&2
+  exit 1
 fi
 COMPOSE=($COMPOSE_BIN -f "$COMPOSE_FILE" --project-directory "$ROOT_DIR")
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@admin.com}"
