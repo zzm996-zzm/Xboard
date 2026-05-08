@@ -1,0 +1,8 @@
+{
+    "name": "USDT Recharge",
+    "code": "usdt_recharge",
+    "type": "payment",
+    "version": "1.0.0",
+    "description": "USDT recharge payment plugin",
+    "author": "XBoard Team"
+}
