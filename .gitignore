@@ -32,3 +32,6 @@ compose.yaml
 compose.host.yaml
 compose.split.yaml
 .scribe
+/AGENTS.MD
+/apps/user-portal/dist
+/apps/user-portal/node_modules
