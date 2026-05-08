@@ -46,12 +46,42 @@ set_env DB_USERNAME root
 set_env DB_PASSWORD xboard123
 set_env CACHE_DRIVER redis
 set_env QUEUE_CONNECTION redis
-set_env REDIS_HOST 127.0.0.1
+set_env REDIS_HOST redis
 set_env REDIS_PORT 6379
 set_env REDIS_PASSWORD null
 
-echo "==> Starting database"
-"${COMPOSE[@]}" up -d mysql
+echo "==> Starting database and cache"
+"${COMPOSE[@]}" up -d mysql redis
+
+echo "==> Waiting for database"
+db_ready=0
+for _ in {1..60}; do
+  if "${COMPOSE[@]}" exec -T mysql mysqladmin ping -h 127.0.0.1 -uroot -pxboard123 --silent >/dev/null 2>&1; then
+    db_ready=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$db_ready" != "1" ]]; then
+  echo "MySQL did not become ready in time." >&2
+  "${COMPOSE[@]}" logs --tail=80 mysql >&2 || true
+  exit 1
+fi
+
+echo "==> Waiting for Redis"
+redis_ready=0
+for _ in {1..30}; do
+  if "${COMPOSE[@]}" exec -T redis redis-cli ping >/dev/null 2>&1; then
+    redis_ready=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$redis_ready" != "1" ]]; then
+  echo "Redis did not become ready in time." >&2
+  "${COMPOSE[@]}" logs --tail=80 redis >&2 || true
+  exit 1
+fi
 
 if [[ "$FORCE_INSTALL" == "1" ]] || ! grep -q '^INSTALLED=true' .env 2>/dev/null; then
   echo "==> Installing Xboard with Docker Compose"

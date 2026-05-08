@@ -19,6 +19,7 @@ services:
       - docker=true
     depends_on:
       - mysql
+      - redis
 
   mysql:
     image: mysql:8.0
@@ -28,6 +29,13 @@ services:
       MYSQL_DATABASE: xboard
     volumes:
       - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
 
 volumes:
   redis-data:
