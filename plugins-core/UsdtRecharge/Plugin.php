@@ -138,6 +138,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
                 'address' => (string) ($data['address'] ?? ''),
                 'network' => (string) ($data['network'] ?? $this->getConfig('network', 'trc20')),
                 'amount_type' => (string) ($data['amount_type'] ?? $this->getConfig('amount_type', 'USDT')),
+                'amount' => (string) ($data['amount'] ?? $params['amount']),
             ],
         ];
     }

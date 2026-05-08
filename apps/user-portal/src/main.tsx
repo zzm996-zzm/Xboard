@@ -532,6 +532,9 @@ function CheckoutPage({
   const isComplete = isFree || checkout?.status === 3;
   const isProcessing = checkout?.status === 1;
   const paymentAddress = paymentInfo.address;
+  const paymentAmount = paymentInfo.amount && paymentInfo.amountType
+    ? `${paymentInfo.amount} ${paymentInfo.amountType.toUpperCase()}`
+    : checkout?.amount || '-';
 
   return (
     <section className="page-stack checkout-layout">
@@ -546,8 +549,8 @@ function CheckoutPage({
             {isComplete ? <Check size={108} /> : isQr ? <img src={paymentUrl} alt="payment qr code" /> : <QrCode size={108} />}
           </div>
           <div>
-            <span className="muted">应付金额</span>
-            <h2>{checkout?.amount || '-'}</h2>
+            <span className="muted">{paymentInfo.amountType ? '应转金额' : '应付金额'}</span>
+            <h2>{paymentAmount}</h2>
             <p>订单：{checkout?.tradeNo || '尚未创建'}</p>
             <p>套餐：{checkout?.planName || '-'}</p>
             <p>支付方式：{checkout?.payment?.name || (isFree ? '免费订单' : '待配置')}</p>
@@ -1196,11 +1199,11 @@ function pickPaymentMethod(methods: PaymentMethod[]) {
 
 function paymentData(data: unknown) {
   if (typeof data === 'string') {
-    return { url: data, qrcode: data, address: '', network: '' };
+    return { url: data, qrcode: data, address: '', network: '', amount: '', amountType: '' };
   }
 
   if (!data || typeof data !== 'object') {
-    return { url: '', qrcode: '', address: '', network: '' };
+    return { url: '', qrcode: '', address: '', network: '', amount: '', amountType: '' };
   }
 
   const record = data as Record<string, unknown>;
@@ -1208,7 +1211,9 @@ function paymentData(data: unknown) {
     url: stringValue(record.url || record.pay_url || record.payment_url || record.qrcode),
     qrcode: stringValue(record.qrcode || record.qr_code || record.url),
     address: stringValue(record.address || record.to_address),
-    network: stringValue(record.network)
+    network: stringValue(record.network),
+    amount: stringValue(record.amount || record.actual_amount),
+    amountType: stringValue(record.amount_type || record.currency || record.coin)
   };
 }
 
