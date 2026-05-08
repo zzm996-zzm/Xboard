@@ -615,6 +615,18 @@ a {
   gap: 10px;
 }
 
+.copy-action {
+  display: grid;
+  gap: 8px;
+}
+
+.copy-action > span {
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 760;
+  text-align: center;
+}
+
 .payment-address {
   display: grid;
   gap: 10px;

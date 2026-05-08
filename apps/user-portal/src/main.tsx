@@ -560,7 +560,9 @@ function CheckoutPage({
             <div className="payment-address">
               <span>{paymentInfo.network ? `${paymentInfo.network.toUpperCase()} 收款地址` : '收款地址'}</span>
               <code>{paymentAddress}</code>
-              <button className="secondary-button wide" onClick={() => copyText(paymentAddress)}><Copy size={18} />复制转账地址</button>
+              <CopyButton className="secondary-button wide" text={paymentAddress} successText="已复制转账地址">
+                <Copy size={18} />复制转账地址
+              </CopyButton>
             </div>
           )}
           {isComplete && (
@@ -570,7 +572,11 @@ function CheckoutPage({
             </div>
           )}
           {isRedirect && <a className="primary-button wide" href={paymentUrl} target="_blank" rel="noreferrer">打开支付页面<ArrowRight size={18} /></a>}
-          {isQr && <button className="primary-button wide" onClick={() => copyText(paymentUrl)}><Copy size={18} />复制二维码链接</button>}
+          {isQr && (
+            <CopyButton className="primary-button wide" text={paymentUrl} successText="已复制二维码链接">
+              <Copy size={18} />复制二维码链接
+            </CopyButton>
+          )}
           {checkout?.error && <div className="inline-error">{checkout.error}</div>}
         </div>
         <div className="panel">
@@ -1068,6 +1074,38 @@ function ActionLine({ icon: Icon, title, onClick }: { icon: React.ElementType; t
 
 function EmptyState({ text }: { text: string }) {
   return <div className="empty-state">{text}</div>;
+}
+
+function CopyButton({
+  text,
+  successText,
+  className,
+  children
+}: {
+  text: string;
+  successText: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const [feedback, setFeedback] = React.useState('');
+
+  async function handleCopy() {
+    try {
+      await copyText(text);
+      setFeedback(successText);
+      window.setTimeout(() => setFeedback(''), 1800);
+    } catch {
+      setFeedback('复制失败，请手动复制');
+      window.setTimeout(() => setFeedback(''), 2200);
+    }
+  }
+
+  return (
+    <div className="copy-action">
+      <button className={className} onClick={handleCopy}>{children}</button>
+      {feedback && <span>{feedback}</span>}
+    </div>
+  );
 }
 
 function orderStatusLabel(status?: number) {
