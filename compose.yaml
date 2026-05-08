@@ -2,7 +2,7 @@
 # Keep deployment boring: every server uses this file, scripts only set .env.
 services:
   xboard:
-    image: ghcr.io/cedar2025/xboard:latest
+    image: ${XBOARD_IMAGE:-ghcr.io/cedar2025/xboard:latest}
     restart: unless-stopped
     ports:
       - "7001:7001"
