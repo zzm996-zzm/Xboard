@@ -11,6 +11,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/compose.yaml}"
 BUILD_REPO_URL="${BUILD_REPO_URL:-https://github.com/zzm996-zzm/Xboard.git}"
 SKIP_PULL="${SKIP_PULL:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
+SYNC_EXISTING_CORE_PLUGIN_OVERRIDES="${SYNC_EXISTING_CORE_PLUGIN_OVERRIDES:-1}"
 
 if [[ ! -f "$COMPOSE_FILE" ]]; then
   echo "Missing compose file: $COMPOSE_FILE" >&2
@@ -27,6 +28,18 @@ if [[ "$SKIP_PULL" != "1" ]]; then
   echo "==> Pulling latest code"
   git fetch "$REMOTE" "$BRANCH"
   git pull --ff-only "$REMOTE" "$BRANCH"
+fi
+
+if [[ "$SYNC_EXISTING_CORE_PLUGIN_OVERRIDES" == "1" ]] && [[ -d plugins-core ]] && [[ -d plugins ]]; then
+  echo "==> Syncing existing mounted core plugin overrides"
+  while IFS= read -r -d '' core_plugin_dir; do
+    plugin_name="$(basename "$core_plugin_dir")"
+    mounted_plugin_dir="plugins/$plugin_name"
+    if [[ -d "$mounted_plugin_dir" ]]; then
+      echo "    syncing $plugin_name"
+      cp -a "$core_plugin_dir/." "$mounted_plugin_dir/"
+    fi
+  done < <(find plugins-core -mindepth 1 -maxdepth 1 -type d -print0)
 fi
 
 COMMIT="$(git rev-parse --short=12 HEAD)"
