@@ -749,6 +749,24 @@ a {
   white-space: nowrap;
 }
 
+.record-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.record-actions > span {
+  color: var(--ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.secondary-button.compact {
+  min-height: 34px;
+  padding: 0 12px;
+}
+
 .record-row.muted-row {
   align-items: flex-start;
 }
@@ -942,5 +960,14 @@ a {
 
   .account-hero {
     justify-items: start;
+  }
+
+  .record-row {
+    align-items: flex-start;
+  }
+
+  .record-actions {
+    flex-direction: column;
+    align-items: flex-end;
   }
 }

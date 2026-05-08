@@ -248,6 +248,55 @@ function App() {
     }
   }
 
+  async function continueCheckout(order: OrderRecord) {
+    if (!auth?.auth_data) {
+      setMessage('请先登录后继续。');
+      go('account');
+      return;
+    }
+
+    if (order.status !== 0) {
+      setMessage(`订单状态：${orderStatusLabel(order.status)}`);
+      return;
+    }
+
+    setMessage('');
+    try {
+      let payment: PaymentMethod | undefined;
+
+      if ((order.total_amount || 0) > 0) {
+        const methods = await api.paymentMethods(auth.auth_data);
+        payment = pickPaymentMethod(methods);
+        if (!payment) {
+          setCheckout({
+            tradeNo: order.trade_no,
+            planName: order.plan?.name || `订单 ${order.trade_no}`,
+            amount: formatMoney(order.total_amount),
+            periodLabel: periodName(order.period),
+            error: '暂未启用可用支付方式，请稍后再试。'
+          });
+          go('checkout');
+          return;
+        }
+      }
+
+      const result = await api.checkoutOrder(auth.auth_data, order.trade_no, payment?.id);
+      setCheckout({
+        tradeNo: order.trade_no,
+        planName: order.plan?.name || `订单 ${order.trade_no}`,
+        amount: formatMoney(order.total_amount),
+        periodLabel: periodName(order.period),
+        payment,
+        result,
+        status: result.type === -1 ? 3 : order.status
+      });
+      go('checkout');
+      await refresh(auth);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '继续支付失败');
+    }
+  }
+
   async function refreshCheckoutStatus() {
     if (!auth?.auth_data || !checkout?.tradeNo) {
       return;
@@ -327,6 +376,7 @@ function App() {
             onConnectionTest={handleConnectionTest}
             onLogout={handleLogout}
             onResetSecurity={resetSecurity}
+            onPayOrder={continueCheckout}
           />
         )}
       </main>
@@ -556,6 +606,7 @@ function AccountPage(props: {
   onConnectionTest: () => Promise<void>;
   onLogout: () => void;
   onResetSecurity: () => void;
+  onPayOrder: (order: OrderRecord) => Promise<void>;
 }) {
   const [view, setView] = React.useState<AccountView>('overview');
   const [orders, setOrders] = React.useState<OrderRecord[] | null>(null);
@@ -661,6 +712,7 @@ function AccountPage(props: {
         onTickets={showTickets}
         onCreateInvite={createInviteCode}
         onResetSecurity={props.onResetSecurity}
+        onPayOrder={props.onPayOrder}
       />
       <div className="panel">
         <PanelHeader icon={ReceiptText} title="本月流量记录" action={`${props.trafficLogs.length} 条`} />
@@ -693,7 +745,8 @@ function AccountDetailPanel({
   onInvite,
   onTickets,
   onCreateInvite,
-  onResetSecurity
+  onResetSecurity,
+  onPayOrder
 }: {
   view: AccountView;
   user: UserInfo | null;
@@ -710,7 +763,19 @@ function AccountDetailPanel({
   onTickets: () => void;
   onCreateInvite: () => void;
   onResetSecurity: () => void;
+  onPayOrder: (order: OrderRecord) => Promise<void>;
 }) {
+  const [payingTradeNo, setPayingTradeNo] = React.useState<string | null>(null);
+
+  async function continuePayment(order: OrderRecord) {
+    setPayingTradeNo(order.trade_no);
+    try {
+      await onPayOrder(order);
+    } finally {
+      setPayingTradeNo(null);
+    }
+  }
+
   return (
     <div className="panel account-detail">
       <div className="account-tabs">
@@ -761,7 +826,14 @@ function AccountDetailPanel({
                 <strong>{order.plan?.name || `订单 ${order.trade_no}`}</strong>
                 <p>{formatDate(order.created_at)} · {periodName(order.period)} · {orderStatusLabel(order.status)}</p>
               </div>
-              <span>{formatMoney(order.total_amount)}</span>
+              <div className="record-actions">
+                <span>{formatMoney(order.total_amount)}</span>
+                {order.status === 0 && (
+                  <button className="secondary-button compact" disabled={payingTradeNo === order.trade_no} onClick={() => continuePayment(order)}>
+                    {payingTradeNo === order.trade_no ? '加载中' : '继续支付'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           {orders && !orders.length && <EmptyState text="暂无订单记录。" />}
