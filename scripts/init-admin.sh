@@ -4,7 +4,8 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-COMPOSE="${COMPOSE:-docker compose}"
+COMPOSE_BIN="${COMPOSE_BIN:-docker compose}"
+COMPOSE=($COMPOSE_BIN -f "$ROOT_DIR/docker-compose.yml" --project-directory "$ROOT_DIR")
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@admin.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
@@ -23,7 +24,7 @@ fi
 
 TINKER_CODE='use App\Models\User; use App\Utils\Helper; $email=getenv("ADMIN_EMAIL"); $password=getenv("ADMIN_PASSWORD"); $user=User::byEmail($email)->first(); if (!$user) { $user=new User(); $user->email=$email; $user->uuid=Helper::guid(true); $user->token=Helper::guid(); } if (!$user->uuid) { $user->uuid=Helper::guid(true); } if (!$user->token) { $user->token=Helper::guid(); } $user->password=password_hash($password, PASSWORD_DEFAULT); $user->password_algo=null; $user->password_salt=null; $user->is_admin=1; $user->banned=0; $user->save(); $securePath=admin_setting("secure_path", admin_setting("frontend_admin_path", hash("crc32b", config("app.key")))); $appUrl=rtrim(admin_setting("app_url") ?: config("app.url"), "/"); echo "Admin ready\nEmail: {$email}\nPassword: {$password}\nAdmin URL: {$appUrl}/{$securePath}\n";'
 
-$COMPOSE exec -T \
+"${COMPOSE[@]}" exec -T \
   -e ADMIN_EMAIL="$ADMIN_EMAIL" \
   -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
   xboard php artisan tinker --execute="$TINKER_CODE"

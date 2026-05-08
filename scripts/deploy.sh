@@ -4,7 +4,8 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-COMPOSE="${COMPOSE:-docker compose}"
+COMPOSE_BIN="${COMPOSE_BIN:-docker compose}"
+COMPOSE=($COMPOSE_BIN -f "$ROOT_DIR/docker-compose.yml" --project-directory "$ROOT_DIR")
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@admin.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 APP_URL="${APP_URL:-http://localhost:7001}"
@@ -25,11 +26,13 @@ set_env() {
 }
 
 echo "==> Preparing .env"
-touch .env
+if [[ ! -f .env ]]; then
+  cp .env.example .env
+fi
 
 if ! grep -q '^INSTALLED=true' .env 2>/dev/null; then
   echo "==> Installing Xboard with Docker Compose"
-  $COMPOSE run --rm \
+  "${COMPOSE[@]}" run --rm \
     -e ENABLE_SQLITE=true \
     -e ENABLE_REDIS=true \
     -e ADMIN_ACCOUNT="$ADMIN_EMAIL" \
@@ -39,10 +42,10 @@ fi
 set_env APP_URL "$APP_URL"
 
 echo "==> Starting services"
-$COMPOSE up -d
+"${COMPOSE[@]}" up -d
 
 echo "==> Clearing caches"
-$COMPOSE exec -T xboard php artisan optimize:clear >/dev/null || true
+"${COMPOSE[@]}" exec -T xboard php artisan optimize:clear >/dev/null || true
 
 if [[ -n "$ADMIN_PASSWORD" ]]; then
   echo "==> Applying admin account password"
