@@ -241,7 +241,7 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
     private function sign(array $params): string
     {
-        unset($params['sign']);
+        unset($params['sign'], $params['trade_no']);
         ksort($params, SORT_STRING);
 
         return strtolower(md5($this->buildSignString($params) . '&secret=' . $this->getConfig('merchant_secret')));
