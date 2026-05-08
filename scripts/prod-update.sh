@@ -42,6 +42,16 @@ if [[ "$SYNC_EXISTING_CORE_PLUGIN_OVERRIDES" == "1" ]] && [[ -d plugins-core ]] 
   done < <(find plugins-core -mindepth 1 -maxdepth 1 -type d -print0)
 fi
 
+if [[ -x scripts/build-user-portal-theme.sh ]]; then
+  if command -v npm >/dev/null 2>&1; then
+    echo "==> Building Northline user portal theme assets"
+    scripts/build-user-portal-theme.sh
+  else
+    echo "==> Skipping Northline theme asset build; npm is not installed on this host"
+    echo "    Using tracked storage/theme/Northline assets from git"
+  fi
+fi
+
 COMMIT="$(git rev-parse --short=12 HEAD)"
 export XBOARD_IMAGE="${XBOARD_IMAGE:-xboard-custom:${BRANCH}-${COMMIT}}"
 
