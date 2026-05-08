@@ -849,7 +849,6 @@ function AccountDetailPanel({
               <div>
                 <strong>{order.plan?.name || `订单 ${order.trade_no}`}</strong>
                 <p>{formatDate(order.created_at)} · {periodName(order.period)} · {orderStatusLabel(order.status)}</p>
-                {isPendingOrder(order.status) && <span className="record-cta">点击继续支付</span>}
               </div>
               <div className="record-actions">
                 <span>{formatMoney(order.total_amount)}</span>
