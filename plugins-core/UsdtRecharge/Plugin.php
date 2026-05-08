@@ -133,7 +133,12 @@ class Plugin extends AbstractPlugin implements PaymentInterface
 
         return [
             'type' => 0,
-            'data' => $paymentData,
+            'data' => [
+                'qrcode' => (string) $paymentData,
+                'address' => (string) ($data['address'] ?? ''),
+                'network' => (string) ($data['network'] ?? $this->getConfig('network', 'trc20')),
+                'amount_type' => (string) ($data['amount_type'] ?? $this->getConfig('amount_type', 'USDT')),
+            ],
         ];
     }
 
