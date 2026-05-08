@@ -102,6 +102,12 @@ echo "==> Starting services"
 echo "==> Clearing caches"
 "${COMPOSE[@]}" exec -T xboard php artisan optimize:clear >/dev/null || true
 
+echo "==> Applying database migrations and default plugins"
+"${COMPOSE[@]}" exec -T xboard php artisan xboard:update
+
+echo "==> Clearing caches"
+"${COMPOSE[@]}" exec -T xboard php artisan optimize:clear >/dev/null || true
+
 if [[ -n "$ADMIN_PASSWORD" ]]; then
   echo "==> Applying admin account password"
   ADMIN_EMAIL="$ADMIN_EMAIL" ADMIN_PASSWORD="$ADMIN_PASSWORD" "$ROOT_DIR/scripts/init-admin.sh"
