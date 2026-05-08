@@ -765,6 +765,31 @@ a {
   line-height: 1.55;
 }
 
+.record-row > div:first-child {
+  min-width: 0;
+}
+
+.record-row.payable-row {
+  cursor: pointer;
+}
+
+.record-row.payable-row:hover {
+  background: #eaf2ff;
+}
+
+.record-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 8px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dfeaff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 780;
+}
+
 .record-row > span {
   color: var(--ink);
   font-weight: 800;
@@ -773,6 +798,7 @@ a {
 
 .record-actions {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
   margin-left: auto;

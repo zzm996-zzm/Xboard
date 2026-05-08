@@ -255,7 +255,7 @@ function App() {
       return;
     }
 
-    if (order.status !== 0) {
+    if (!isPendingOrder(order.status)) {
       setMessage(`订单状态：${orderStatusLabel(order.status)}`);
       return;
     }
@@ -830,15 +830,35 @@ function AccountDetailPanel({
       {!busy && view === 'orders' && (
         <div className="record-list">
           {(orders || []).slice(0, 8).map((order) => (
-            <div className="record-row" key={order.id || order.trade_no}>
+            <div
+              className={`record-row ${isPendingOrder(order.status) ? 'payable-row' : ''}`}
+              key={order.id || order.trade_no}
+              role={isPendingOrder(order.status) ? 'button' : undefined}
+              tabIndex={isPendingOrder(order.status) ? 0 : undefined}
+              onClick={isPendingOrder(order.status) ? () => continuePayment(order) : undefined}
+              onKeyDown={(event) => {
+                if (isPendingOrder(order.status) && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault();
+                  continuePayment(order);
+                }
+              }}
+            >
               <div>
                 <strong>{order.plan?.name || `订单 ${order.trade_no}`}</strong>
                 <p>{formatDate(order.created_at)} · {periodName(order.period)} · {orderStatusLabel(order.status)}</p>
+                {isPendingOrder(order.status) && <span className="record-cta">点击继续支付</span>}
               </div>
               <div className="record-actions">
                 <span>{formatMoney(order.total_amount)}</span>
-                {order.status === 0 && (
-                  <button className="secondary-button compact" disabled={payingTradeNo === order.trade_no} onClick={() => continuePayment(order)}>
+                {isPendingOrder(order.status) && (
+                  <button
+                    className="secondary-button compact"
+                    disabled={payingTradeNo === order.trade_no}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      continuePayment(order);
+                    }}
+                  >
                     {payingTradeNo === order.trade_no ? '加载中' : '继续支付'}
                   </button>
                 )}
@@ -1049,7 +1069,7 @@ function EmptyState({ text }: { text: string }) {
 }
 
 function orderStatusLabel(status?: number) {
-  switch (status) {
+  switch (Number(status)) {
     case 0:
       return '待支付';
     case 1:
@@ -1063,6 +1083,10 @@ function orderStatusLabel(status?: number) {
     default:
       return '待确认';
   }
+}
+
+function isPendingOrder(status?: number) {
+  return Number(status) === 0;
 }
 
 function periodName(period?: PeriodKey | string) {
