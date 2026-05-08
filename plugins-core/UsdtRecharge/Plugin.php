@@ -72,9 +72,9 @@ class Plugin extends AbstractPlugin implements PaymentInterface
                 'default' => 'email',
                 'description' => 'email 使用注册邮箱；order 每笔订单独立；fixed 使用固定值',
                 'options' => [
-                    'email' => '用户注册邮箱',
-                    'order' => '每笔订单独立',
-                    'fixed' => '固定值'
+                    ['label' => '用户注册邮箱', 'value' => 'email'],
+                    ['label' => '每笔订单独立', 'value' => 'order'],
+                    ['label' => '固定值', 'value' => 'fixed']
                 ]
             ],
             'amount_mode' => [
@@ -83,8 +83,8 @@ class Plugin extends AbstractPlugin implements PaymentInterface
                 'default' => 'order',
                 'description' => 'order 按订单金额请求；fixed 使用下方固定金额',
                 'options' => [
-                    'order' => '订单金额',
-                    'fixed' => '固定金额'
+                    ['label' => '订单金额', 'value' => 'order'],
+                    ['label' => '固定金额', 'value' => 'fixed']
                 ]
             ],
             'fixed_amount' => [
