@@ -615,6 +615,28 @@ a {
   gap: 10px;
 }
 
+.payment-address {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f3f7fc;
+}
+
+.payment-address span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.payment-address code {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 .step {
   display: grid;
   grid-template-columns: 32px 1fr;

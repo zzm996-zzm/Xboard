@@ -524,12 +524,14 @@ function CheckoutPage({
   onSetup: () => void;
   onCopySubscribe: () => void;
 }) {
-  const paymentUrl = typeof checkout?.result?.data === 'string' ? checkout.result.data : '';
+  const paymentInfo = paymentData(checkout?.result?.data);
+  const paymentUrl = paymentInfo.qrcode || paymentInfo.url;
   const isQr = checkout?.result?.type === 0 && paymentUrl;
   const isRedirect = checkout?.result?.type === 1 && paymentUrl;
   const isFree = checkout?.result?.type === -1;
   const isComplete = isFree || checkout?.status === 3;
   const isProcessing = checkout?.status === 1;
+  const paymentAddress = paymentInfo.address;
 
   return (
     <section className="page-stack checkout-layout">
@@ -551,6 +553,13 @@ function CheckoutPage({
             <p>支付方式：{checkout?.payment?.name || (isFree ? '免费订单' : '待配置')}</p>
             {checkout?.status !== undefined && <p>订单状态：{orderStatusLabel(checkout.status)}</p>}
           </div>
+          {paymentAddress && !isComplete && (
+            <div className="payment-address">
+              <span>{paymentInfo.network ? `${paymentInfo.network.toUpperCase()} 收款地址` : '收款地址'}</span>
+              <code>{paymentAddress}</code>
+              <button className="secondary-button wide" onClick={() => copyText(paymentAddress)}><Copy size={18} />复制转账地址</button>
+            </div>
+          )}
           {isComplete && (
             <div className="checkout-actions">
               <button className="primary-button wide" onClick={onCopySubscribe}><Copy size={18} />复制订阅链接</button>
@@ -1159,6 +1168,28 @@ function planFeatures(plan: Plan) {
 
 function pickPaymentMethod(methods: PaymentMethod[]) {
   return methods.find((method) => /usdt|coin|btc|crypto|trc/i.test(`${method.name} ${method.payment}`)) || methods[0];
+}
+
+function paymentData(data: unknown) {
+  if (typeof data === 'string') {
+    return { url: data, qrcode: data, address: '', network: '' };
+  }
+
+  if (!data || typeof data !== 'object') {
+    return { url: '', qrcode: '', address: '', network: '' };
+  }
+
+  const record = data as Record<string, unknown>;
+  return {
+    url: stringValue(record.url || record.pay_url || record.payment_url || record.qrcode),
+    qrcode: stringValue(record.qrcode || record.qr_code || record.url),
+    address: stringValue(record.address || record.to_address),
+    network: stringValue(record.network)
+  };
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value : '';
 }
 
 function withQuery(url: string, key: string, value: string) {
