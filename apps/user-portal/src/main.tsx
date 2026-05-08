@@ -69,7 +69,7 @@ const setupClients = [
 ];
 
 function App() {
-  const [page, setPage] = React.useState<Page>('home');
+  const [page, setPage] = React.useState<Page>(() => pageFromHash());
   const [auth, setAuth] = React.useState<AuthData | null>(() => loadAuth());
   const [user, setUser] = React.useState<UserInfo | null>(null);
   const [subscribe, setSubscribe] = React.useState<SubscribeInfo | null>(null);
@@ -87,6 +87,14 @@ function App() {
   const usedBytes = (subscribe?.u || 0) + (subscribe?.d || 0);
   const totalBytes = subscribe?.transfer_enable || user?.transfer_enable || 0;
   const progress = totalBytes > 0 ? Math.min(1, usedBytes / totalBytes) : 0;
+
+  const go = React.useCallback((nextPage: Page) => {
+    setPage(nextPage);
+    const nextHash = hashForPage(nextPage);
+    if (window.location.hash !== nextHash) {
+      window.history.pushState(null, '', nextHash);
+    }
+  }, []);
 
   const refresh = React.useCallback(async (currentAuth = auth) => {
     setLoading(true);
@@ -135,6 +143,12 @@ function App() {
   }, [refresh]);
 
   React.useEffect(() => {
+    const syncFromHash = () => setPage(pageFromHash());
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [page]);
 
@@ -142,7 +156,7 @@ function App() {
     const nextAuth = await api.login(email, password);
     saveAuth(nextAuth);
     setAuth(nextAuth);
-    setPage('home');
+    go('home');
     await refresh(nextAuth);
   }
 
@@ -150,7 +164,7 @@ function App() {
     const nextAuth = await api.register(email, password);
     saveAuth(nextAuth);
     setAuth(nextAuth);
-    setPage('home');
+    go('home');
     await refresh(nextAuth);
   }
 
@@ -163,14 +177,14 @@ function App() {
   function handleLogout() {
     saveAuth(null);
     setAuth(null);
-    setPage('account');
+    go('account');
     refresh(null);
   }
 
   async function copySubscribe(flag?: string) {
     if (!subscriptionUrl) {
       setMessage('请先登录，登录后才能复制你的专属订阅链接。');
-      setPage('account');
+      go('account');
       return;
     }
     const url = flag ? withQuery(subscriptionUrl, 'flag', flag) : subscriptionUrl;
@@ -189,7 +203,7 @@ function App() {
   async function startCheckout(plan: Plan) {
     if (!auth?.auth_data) {
       setMessage('请先登录后继续。');
-      setPage('account');
+      go('account');
       return;
     }
 
@@ -218,14 +232,14 @@ function App() {
             periodLabel: period.label,
             error: '暂未启用可用支付方式，请稍后再试。'
           });
-          setPage('checkout');
+          go('checkout');
           return;
         }
       }
 
       result = await api.checkoutOrder(auth.auth_data, tradeNo, payment?.id);
       setCheckout({ tradeNo, planName: plan.name, amount, periodLabel: period.label, payment, result, status: result.type === -1 ? 3 : 0 });
-      setPage('checkout');
+      go('checkout');
       await refresh(auth);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '创建订单失败');
@@ -253,19 +267,19 @@ function App() {
   return (
     <div className="shell">
       <header className="topbar">
-        <button className="brand" onClick={() => setPage('home')}>
+        <button className="brand" onClick={() => go('home')}>
           <span className="brand-mark"><Wifi size={22} /></span>
           <span>Northline</span>
         </button>
         <nav className="nav">
-          <NavButton active={page === 'home'} icon={Home} label="首页" onClick={() => setPage('home')} />
-          <NavButton active={page === 'plans'} icon={PackageCheck} label="套餐" onClick={() => setPage('plans')} />
-          <NavButton active={page === 'setup'} icon={DownloadCloud} label="导入" onClick={() => setPage('setup')} />
-          <NavButton active={page === 'account'} icon={UserRound} label="我的" onClick={() => setPage('account')} />
+          <NavButton active={page === 'home'} icon={Home} label="首页" onClick={() => go('home')} />
+          <NavButton active={page === 'plans'} icon={PackageCheck} label="套餐" onClick={() => go('plans')} />
+          <NavButton active={page === 'setup'} icon={DownloadCloud} label="导入" onClick={() => go('setup')} />
+          <NavButton active={page === 'account'} icon={UserRound} label="我的" onClick={() => go('account')} />
         </nav>
         <div className="top-actions">
           <button className="icon-button" aria-label="notifications"><Bell size={19} /></button>
-          <button className="profile-button" onClick={() => setPage('account')}>
+          <button className="profile-button" onClick={() => go('account')}>
             <span>{user ? initials(user.email) : '登录'}</span>
           </button>
         </div>
@@ -285,9 +299,9 @@ function App() {
             progress={progress}
             usedBytes={usedBytes}
             totalBytes={totalBytes}
-            onPlan={() => setPage('plans')}
-            onCheckout={() => plans[0] ? startCheckout(plans[0]) : setPage('plans')}
-            onSetup={() => setPage(isLoggedIn ? 'setup' : 'account')}
+            onPlan={() => go('plans')}
+            onCheckout={() => plans[0] ? startCheckout(plans[0]) : go('plans')}
+            onSetup={() => go(isLoggedIn ? 'setup' : 'account')}
             onCopySubscribe={() => copySubscribe()}
           />
         )}
@@ -296,7 +310,7 @@ function App() {
           <CheckoutPage
             checkout={checkout}
             onRefresh={refreshCheckoutStatus}
-            onSetup={() => setPage('setup')}
+            onSetup={() => go('setup')}
             onCopySubscribe={() => copySubscribe()}
           />
         )}
@@ -972,6 +986,41 @@ function orderStatusLabel(status?: number) {
 
 function periodName(period?: PeriodKey | string) {
   return periods.find((item) => item.key === period)?.label || '周期';
+}
+
+function pageFromHash(): Page {
+  const value = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+  switch (value) {
+    case 'plans':
+    case 'shop':
+      return 'plans';
+    case 'checkout':
+    case 'order':
+      return 'checkout';
+    case 'setup':
+    case 'import':
+      return 'setup';
+    case 'account':
+    case 'login':
+    case 'register':
+    case 'user-center':
+      return 'account';
+    case 'home':
+    case 'dashboard':
+    default:
+      return 'home';
+  }
+}
+
+function hashForPage(page: Page) {
+  const map: Record<Page, string> = {
+    home: '#/home',
+    plans: '#/plans',
+    checkout: '#/checkout',
+    setup: '#/setup',
+    account: '#/account'
+  };
+  return map[page];
 }
 
 function loadAuth(): AuthData | null {

@@ -105,6 +105,9 @@ echo "==> Clearing caches"
 echo "==> Applying database migrations and default plugins"
 "${COMPOSE[@]}" exec -T xboard php artisan xboard:update
 
+echo "==> Enabling Northline user portal theme"
+"${COMPOSE[@]}" exec -T xboard php artisan tinker --execute='admin_setting(["frontend_theme" => "Northline"]); app(\App\Services\ThemeService::class)->switch("Northline");'
+
 echo "==> Clearing caches"
 "${COMPOSE[@]}" exec -T xboard php artisan optimize:clear >/dev/null || true
 
