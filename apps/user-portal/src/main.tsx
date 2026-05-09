@@ -61,11 +61,13 @@ const periods: Array<{ key: PeriodKey; label: string; months?: number }> = [
   { key: 'quarter_price', label: '季付', months: 3 },
   { key: 'half_year_price', label: '半年付', months: 6 },
   { key: 'year_price', label: '年付', months: 12 },
-  { key: 'two_year_price', label: '两年付', months: 24 },
+  { key: 'two_year_price', label: '2年套餐', months: 24 },
   { key: 'three_year_price', label: '三年付', months: 36 },
   { key: 'onetime_price', label: '一次性' },
   { key: 'reset_price', label: '流量重置' }
 ];
+
+const customerPeriodKeys: PeriodKey[] = ['month_price', 'year_price', 'two_year_price'];
 
 const setupClients = [
   { name: 'Clash Verge', platform: 'macOS / Windows', flag: 'clash', icon: Laptop },
@@ -700,7 +702,7 @@ function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; 
               <span className="plan-badge">{plan.tags?.[0] || (plan.sell === false ? '暂不可售' : 'Available')}</span>
               <h2>{plan.name}</h2>
               <p className="plan-data">{plan.transfer_enable} GB monthly data</p>
-              <div className="price-row"><strong>{period ? formatMoney(plan[period.key]) : '-'}</strong><span>{period ? `/${period.label}` : ''}</span></div>
+              <div className="price-row"><strong>{period ? formatMonthlyMoney(plan[period.key], period.months) : '-'}</strong><span>/月</span></div>
               {availablePeriods.length > 1 && (
                 <div className="period-picker" role="group" aria-label={`${plan.name} 购买周期`}>
                   {availablePeriods.map((item) => (
@@ -711,7 +713,7 @@ function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; 
                       onClick={() => setSelectedPeriods((current) => ({ ...current, [plan.id]: item.key }))}
                     >
                       <span>{item.label}</span>
-                      <strong>{formatMoney(plan[item.key])}</strong>
+                      <strong>{formatMonthlyMoney(plan[item.key], item.months)}/月</strong>
                     </button>
                   ))}
                 </div>
@@ -1437,7 +1439,7 @@ function bestPeriod(plan: Plan) {
 }
 
 function purchasePeriods(plan: Plan) {
-  return periods.filter((period) => period.key !== 'reset_price' && plan[period.key] !== null && plan[period.key] !== undefined);
+  return periods.filter((period) => customerPeriodKeys.includes(period.key) && plan[period.key] !== null && plan[period.key] !== undefined);
 }
 
 function purchasePeriod(plan: Plan, selectedPeriod?: PeriodKey) {
@@ -1448,6 +1450,13 @@ function formatMoney(value?: number | null) {
   if (value === null || value === undefined) return '-';
   if (value <= 0) return '免费';
   const amount = value / 100;
+  return `$${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
+}
+
+function formatMonthlyMoney(value?: number | null, months = 1) {
+  if (value === null || value === undefined) return '-';
+  if (value <= 0) return '免费';
+  const amount = value / 100 / Math.max(1, months);
   return `$${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
 }
 
