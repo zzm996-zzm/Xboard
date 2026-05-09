@@ -12,6 +12,8 @@
       version: "{{ $version }}",
       logo: "{{ $logo }}",
       secure_path: "{{ $secure_path }}",
+      currency: @json(admin_setting('currency', 'CNY')),
+      currency_symbol: @json(admin_setting('currency_symbol', '¥')),
     };
   </script>
   @php
@@ -81,6 +83,40 @@
 
 <body>
   <div id="root"></div>
+  <script>
+    (() => {
+      const symbol = window.settings?.currency_symbol;
+      if (!symbol || symbol === '¥') return;
+
+      const replaceCurrencySymbol = (node) => {
+        if (!node) return;
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.nodeValue && node.nodeValue.includes('¥')) {
+            node.nodeValue = node.nodeValue.replaceAll('¥', symbol);
+          }
+          return;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        if (['SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT'].includes(node.tagName)) return;
+
+        for (const child of node.childNodes) {
+          replaceCurrencySymbol(child);
+        }
+      };
+
+      const run = () => replaceCurrencySymbol(document.getElementById('root'));
+      window.addEventListener('DOMContentLoaded', run);
+      new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          replaceCurrencySymbol(mutation.target);
+          for (const node of mutation.addedNodes) {
+            replaceCurrencySymbol(node);
+          }
+        }
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    })();
+  </script>
 </body>
 
 </html>
