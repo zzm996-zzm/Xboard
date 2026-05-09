@@ -846,7 +846,15 @@ function CheckoutPage({
 
 function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | null; onCopyProfile: (flag?: string) => void }) {
   const [selectedClient, setSelectedClient] = React.useState(setupClients[0].flag);
+  const guideRef = React.useRef<HTMLDivElement | null>(null);
   const activeClient = setupClients.find((client) => client.flag === selectedClient) || setupClients[0];
+
+  function openGuide(flag: string) {
+    setSelectedClient(flag);
+    window.setTimeout(() => {
+      guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
 
   return (
     <section className="page-stack">
@@ -857,7 +865,7 @@ function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | nu
             <div className="client-icon"><Icon size={28} /></div>
             <h2>{name}</h2>
             <p>{platform}</p>
-            <button className="secondary-button wide" onClick={() => setSelectedClient(flag)}>
+            <button className="secondary-button wide" onClick={() => openGuide(flag)}>
               查看教程<ChevronRight size={18} />
             </button>
             <button className="secondary-button wide" disabled={!subscribe?.subscribe_url} onClick={() => onCopyProfile(flag)}>
@@ -867,7 +875,7 @@ function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | nu
         ))}
       </div>
       {!subscribe?.subscribe_url && <EmptyState text="请先登录并拥有有效套餐，才会生成专属订阅链接。" />}
-      <div className="panel guide-panel">
+      <div className="panel guide-panel" ref={guideRef}>
         <PanelHeader icon={activeClient.icon} title={`${activeClient.name} 教程`} action={activeClient.platform} />
         <div className="guide-layout">
           <div className="guide-download">
