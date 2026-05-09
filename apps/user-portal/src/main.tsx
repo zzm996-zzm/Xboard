@@ -267,14 +267,14 @@ function App() {
     setMessage('订阅链接已重置，并复制到剪贴板。旧链接会失效。');
   }
 
-  async function startCheckout(plan: Plan) {
+  async function startCheckout(plan: Plan, selectedPeriod?: PeriodKey) {
     if (!auth?.auth_data) {
       setMessage('请先登录后继续。');
       go('account');
       return;
     }
 
-    const period = bestPeriod(plan);
+    const period = purchasePeriod(plan, selectedPeriod);
     if (!period) {
       setMessage('这个套餐没有可购买周期。');
       return;
@@ -684,13 +684,16 @@ function HomePage(props: {
   );
 }
 
-function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; loading: boolean; busyPlanId: number | null; onCheckout: (plan: Plan) => void }) {
+function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; loading: boolean; busyPlanId: number | null; onCheckout: (plan: Plan, period?: PeriodKey) => void }) {
+  const [selectedPeriods, setSelectedPeriods] = React.useState<Record<number, PeriodKey>>({});
+
   return (
     <section className="page-stack">
       <PageTitle eyebrow="Choose plan" title="选择适合你的套餐" subtitle="清晰展示权益，按需购买或续费。" />
       <div className="plans-grid">
         {plans.map((plan, index) => {
-          const period = bestPeriod(plan);
+          const availablePeriods = purchasePeriods(plan);
+          const period = purchasePeriod(plan, selectedPeriods[plan.id]);
           const disabled = !period || plan.sell === false || busyPlanId === plan.id;
           return (
             <article className={`plan-card ${index === 1 ? 'primary' : index === 2 ? 'gold' : 'calm'}`} key={plan.id}>
@@ -698,7 +701,22 @@ function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; 
               <h2>{plan.name}</h2>
               <p className="plan-data">{plan.transfer_enable} GB monthly data</p>
               <div className="price-row"><strong>{period ? formatMoney(plan[period.key]) : '-'}</strong><span>{period ? `/${period.label}` : ''}</span></div>
-              <button className={index === 1 ? 'primary-button wide' : 'secondary-button wide'} disabled={disabled} onClick={() => onCheckout(plan)}>
+              {availablePeriods.length > 1 && (
+                <div className="period-picker" role="group" aria-label={`${plan.name} 购买周期`}>
+                  {availablePeriods.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={period?.key === item.key ? 'active' : ''}
+                      onClick={() => setSelectedPeriods((current) => ({ ...current, [plan.id]: item.key }))}
+                    >
+                      <span>{item.label}</span>
+                      <strong>{formatMoney(plan[item.key])}</strong>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <button className={index === 1 ? 'primary-button wide' : 'secondary-button wide'} disabled={disabled} onClick={() => onCheckout(plan, period?.key)}>
                 {busyPlanId === plan.id ? '创建订单中...' : `${formatMoney(plan[period?.key || 'month_price']) === '免费' ? '开通' : '购买'} ${plan.name}`}
               </button>
               <ul className="feature-list">
@@ -1415,7 +1433,15 @@ function saveAuth(auth: AuthData | null) {
 }
 
 function bestPeriod(plan: Plan) {
-  return periods.find((period) => plan[period.key] !== null && plan[period.key] !== undefined);
+  return purchasePeriods(plan)[0];
+}
+
+function purchasePeriods(plan: Plan) {
+  return periods.filter((period) => period.key !== 'reset_price' && plan[period.key] !== null && plan[period.key] !== undefined);
+}
+
+function purchasePeriod(plan: Plan, selectedPeriod?: PeriodKey) {
+  return purchasePeriods(plan).find((period) => period.key === selectedPeriod) || bestPeriod(plan);
 }
 
 function formatMoney(value?: number | null) {

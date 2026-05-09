@@ -655,6 +655,44 @@ a {
   line-height: 1;
 }
 
+.period-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+
+.period-picker button {
+  display: grid;
+  gap: 3px;
+  min-height: 56px;
+  padding: 9px 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.88);
+  color: var(--muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.period-picker button.active {
+  border-color: rgba(0, 113, 227, 0.55);
+  background: #eaf3ff;
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, 0.16);
+}
+
+.period-picker span {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.period-picker strong {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.15;
+}
+
 .feature-list {
   display: grid;
   gap: 11px;
