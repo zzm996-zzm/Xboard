@@ -226,8 +226,16 @@ export const api = {
     return request<SubscribeInfo>('/user/getSubscribe', { token });
   },
 
-  userPlans(token: string) {
-    return request<unknown>('/user/plan/fetch', { token }).then(asList<Plan>);
+  userPlans(token: string, planId?: number | null) {
+    return request<unknown>('/user/plan/fetch', {
+      token,
+      params: { id: planId || undefined }
+    }).then((value) => {
+      if (planId && value && !Array.isArray(value)) {
+        return [value as Plan];
+      }
+      return asList<Plan>(value);
+    });
   },
 
   servers(token: string) {

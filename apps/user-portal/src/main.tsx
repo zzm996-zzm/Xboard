@@ -39,6 +39,7 @@ type CheckoutState = {
   planName?: string;
   amount?: string;
   periodLabel?: string;
+  period?: PeriodKey;
   payment?: PaymentMethod;
   result?: CheckoutResponse;
   status?: number;
@@ -296,6 +297,7 @@ function App() {
             planName: plan.name,
             amount,
             periodLabel: period.label,
+            period: period.key,
             error: '暂未启用可用支付方式，请稍后再试。'
           });
           go('checkout');
@@ -304,7 +306,7 @@ function App() {
       }
 
       result = await api.checkoutOrder(auth.auth_data, tradeNo, payment?.id);
-      setCheckout({ tradeNo, planName: plan.name, amount, periodLabel: period.label, payment, result, status: result.type === -1 ? 3 : 0 });
+      setCheckout({ tradeNo, planName: plan.name, amount, periodLabel: period.label, period: period.key, payment, result, status: result.type === -1 ? 3 : 0 });
       go('checkout');
       await refresh(auth);
     } catch (error) {
@@ -322,7 +324,12 @@ function App() {
     }
 
     const activePlanId = subscribe?.plan_id || user?.plan_id;
-    const activePlan = plans.find((plan) => plan.id === activePlanId) || subscribe?.plan || null;
+    let activePlan = plans.find((plan) => plan.id === activePlanId) || null;
+
+    if (!activePlan && activePlanId) {
+      const [fetchedPlan] = await api.userPlans(auth.auth_data, activePlanId);
+      activePlan = fetchedPlan || null;
+    }
 
     if (!activePlan) {
       setMessage('当前账号还没有有效套餐，请先选择套餐。');
@@ -353,6 +360,7 @@ function App() {
             planName: activePlan.name,
             amount,
             periodLabel: '流量重置',
+            period: 'reset_price',
             error: '暂未启用可用支付方式，请稍后再试。'
           });
           go('checkout');
@@ -366,6 +374,7 @@ function App() {
         planName: activePlan.name,
         amount,
         periodLabel: '流量重置',
+        period: 'reset_price',
         payment,
         result,
         status: result.type === -1 ? 3 : 0
@@ -427,6 +436,7 @@ function App() {
             planName: order.plan?.name || `订单 ${order.trade_no}`,
             amount: formatMoney(order.total_amount),
             periodLabel: periodName(order.period),
+            period: order.period,
             error: '暂未启用可用支付方式，请稍后再试。'
           });
           go('checkout');
@@ -440,6 +450,7 @@ function App() {
         planName: order.plan?.name || `订单 ${order.trade_no}`,
         amount: formatMoney(order.total_amount),
         periodLabel: periodName(order.period),
+        period: order.period,
         payment,
         result,
         status: result.type === -1 ? 3 : order.status
@@ -722,6 +733,7 @@ function CheckoutPage({
   const isFree = checkout?.result?.type === -1;
   const isComplete = isFree || checkout?.status === 3;
   const isProcessing = checkout?.status === 1;
+  const isTrafficReset = checkout?.period === 'reset_price';
   const paymentAddress = paymentInfo.address;
   const paymentAmount = paymentInfo.amount && paymentInfo.amountType
     ? `${paymentInfo.amount} ${paymentInfo.amountType.toUpperCase()}`
@@ -731,8 +743,8 @@ function CheckoutPage({
     <section className="page-stack checkout-layout">
       <PageTitle
         eyebrow="Checkout"
-        title={isComplete ? '订阅已生效' : '完成订单支付'}
-        subtitle={isComplete ? '套餐已经开通，可以复制订阅链接或导入客户端。' : '确认金额后完成支付，套餐会在到账后自动生效。'}
+        title={isComplete ? (isTrafficReset ? '流量已重置' : '订阅已生效') : '完成订单支付'}
+        subtitle={isComplete ? (isTrafficReset ? '当前套餐流量已经恢复，可以继续使用。' : '套餐已经开通，可以复制订阅链接或导入客户端。') : '确认金额后完成支付，套餐会在到账后自动生效。'}
       />
       <div className="checkout-grid">
         <div className="panel payment-panel">
@@ -775,7 +787,7 @@ function CheckoutPage({
           <div className="timeline">
             <Step done={Boolean(checkout?.tradeNo)} title="订单已创建" body={checkout?.periodLabel || '选择套餐周期'} />
             <Step done={Boolean(checkout?.result)} title={isComplete ? '支付已确认' : '支付请求已提交'} body={checkout?.payment?.name || checkout?.error || (isFree ? '免费订单' : '等待支付方式')} />
-            <Step done={isComplete} title={isProcessing ? '套餐开通中' : '套餐生效'} body={isComplete ? '订阅已经更新，可以开始使用。' : '到账确认后订阅会自动更新。'} />
+            <Step done={isComplete} title={isProcessing ? (isTrafficReset ? '流量重置中' : '套餐开通中') : (isTrafficReset ? '流量重置生效' : '套餐生效')} body={isComplete ? (isTrafficReset ? '已用流量已经清零。' : '订阅已经更新，可以开始使用。') : '到账确认后订阅会自动更新。'} />
           </div>
         </div>
       </div>
