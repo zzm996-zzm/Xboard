@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Copy,
   DownloadCloud,
+  ExternalLink,
   Globe2,
   Home,
   KeyRound,
@@ -70,10 +71,38 @@ const periods: Array<{ key: PeriodKey; label: string; months?: number }> = [
 const customerPeriodKeys: PeriodKey[] = ['month_price', 'year_price', 'two_year_price'];
 
 const setupClients = [
-  { name: 'Clash Verge', platform: 'macOS / Windows', flag: 'clash', icon: Laptop },
-  { name: 'Shadowrocket', platform: 'iOS', flag: 'shadowrocket', icon: Smartphone },
-  { name: 'Stash', platform: 'iOS / macOS', flag: 'stash', icon: ShieldCheck },
-  { name: 'Sing-box', platform: 'Universal core', flag: 'sing-box', icon: RadioTower }
+  {
+    name: 'Clash Verge',
+    platform: 'macOS / Windows',
+    flag: 'clash',
+    icon: Laptop,
+    downloadUrl: 'https://github.com/clash-verge-rev/clash-verge-rev/releases/latest',
+    steps: ['下载并安装 Clash Verge Rev', '复制配置链接', '打开订阅或配置页面，粘贴链接并导入', '更新配置后选择节点并连接']
+  },
+  {
+    name: 'Shadowrocket',
+    platform: 'iPhone / iPad',
+    flag: 'shadowrocket',
+    icon: Smartphone,
+    downloadUrl: 'https://apps.apple.com/us/app/shadowrocket/id932747118',
+    steps: ['在 App Store 安装 Shadowrocket', '复制配置链接', '点击右上角加号，类型选择 Subscribe', '粘贴链接保存，然后刷新订阅']
+  },
+  {
+    name: 'Stash',
+    platform: 'iOS / macOS',
+    flag: 'stash',
+    icon: ShieldCheck,
+    downloadUrl: 'https://apps.apple.com/us/app/stash-rule-based-proxy/id1596063349',
+    steps: ['安装 Stash', '复制配置链接', '进入配置管理，选择从 URL 下载', '粘贴链接保存，返回首页启用配置']
+  },
+  {
+    name: 'Sing-box',
+    platform: 'Android / Linux',
+    flag: 'sing-box',
+    icon: RadioTower,
+    downloadUrl: 'https://github.com/SagerNet/sing-box/releases/latest',
+    steps: ['安装支持 sing-box 的客户端', '复制配置链接', '在客户端中选择 URL 导入', '刷新配置后连接可用节点']
+  }
 ];
 
 function App() {
@@ -646,8 +675,8 @@ function HomePage(props: {
       </div>
 
       <div className="quick-grid">
-        <ActionCard icon={Zap} title="快速导入" body="Clash Verge、Shadowrocket、Stash 一键复制配置。" onClick={props.onSetup} />
-        <ActionCard icon={DownloadCloud} title="使用教程" body="按设备查看导入方式，复制配置后刷新客户端。" onClick={props.onSetup} />
+        <ActionCard icon={Zap} title="快速导入" body="复制专属订阅链接，在客户端中粘贴导入。" onClick={props.onSetup} />
+        <ActionCard icon={DownloadCloud} title="使用教程" body="按设备查看下载、导入、刷新配置步骤。" onClick={props.onSetup} />
         <ActionCard icon={RefreshCcw} title="重置流量" body="流量不足时购买重置包，恢复当前套餐流量。" onClick={props.onResetTraffic} />
       </div>
 
@@ -816,15 +845,21 @@ function CheckoutPage({
 }
 
 function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | null; onCopyProfile: (flag?: string) => void }) {
+  const [selectedClient, setSelectedClient] = React.useState(setupClients[0].flag);
+  const activeClient = setupClients.find((client) => client.flag === selectedClient) || setupClients[0];
+
   return (
     <section className="page-stack">
-      <PageTitle eyebrow="One click setup" title="选择你的客户端" subtitle="选择设备对应客户端，复制配置链接后导入使用。" />
+      <PageTitle eyebrow="One click setup" title="导入配置与使用教程" subtitle="选择设备对应客户端，复制配置链接后按步骤导入。" />
       <div className="client-grid">
         {setupClients.map(({ name, platform, flag, icon: Icon }) => (
-          <article className="client-card" key={name}>
+          <article className={`client-card ${activeClient.flag === flag ? 'active' : ''}`} key={name}>
             <div className="client-icon"><Icon size={28} /></div>
             <h2>{name}</h2>
             <p>{platform}</p>
+            <button className="secondary-button wide" onClick={() => setSelectedClient(flag)}>
+              查看教程<ChevronRight size={18} />
+            </button>
             <button className="secondary-button wide" disabled={!subscribe?.subscribe_url} onClick={() => onCopyProfile(flag)}>
               复制配置链接<DownloadCloud size={18} />
             </button>
@@ -832,6 +867,33 @@ function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | nu
         ))}
       </div>
       {!subscribe?.subscribe_url && <EmptyState text="请先登录并拥有有效套餐，才会生成专属订阅链接。" />}
+      <div className="panel guide-panel">
+        <PanelHeader icon={activeClient.icon} title={`${activeClient.name} 教程`} action={activeClient.platform} />
+        <div className="guide-layout">
+          <div className="guide-download">
+            <strong>客户端下载</strong>
+            <p>先安装客户端，再复制你的订阅配置链接。</p>
+            <a className="primary-button wide" href={activeClient.downloadUrl} target="_blank" rel="noreferrer">
+              打开下载页面<ExternalLink size={18} />
+            </a>
+            <button className="secondary-button wide" disabled={!subscribe?.subscribe_url} onClick={() => onCopyProfile(activeClient.flag)}>
+              复制配置链接<Copy size={18} />
+            </button>
+          </div>
+          <ol className="guide-steps">
+            {activeClient.steps.map((step, index) => (
+              <li key={step}>
+                <span>{index + 1}</span>
+                <p>{step}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="guide-note">
+          <strong>连接异常时</strong>
+          <p>重新复制订阅链接并刷新配置；如果仍然不可用，切换其它在线节点后再试。</p>
+        </div>
+      </div>
     </section>
   );
 }
@@ -1288,8 +1350,8 @@ function Metric({ label, value }: { label: string; value: string }) {
 function ActionCard({ icon: Icon, title, body, onClick }: { icon: React.ElementType; title: string; body: string; onClick: () => void }) {
   return (
     <button className="action-card" onClick={onClick}>
-      <Icon size={24} />
-      <strong>{title}</strong>
+      <span className="action-icon"><Icon size={23} /></span>
+      <strong>{title}<ChevronRight size={17} /></strong>
       <p>{body}</p>
     </button>
   );
