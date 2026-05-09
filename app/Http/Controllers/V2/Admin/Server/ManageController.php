@@ -52,6 +52,11 @@ class ManageController extends Controller
     public function save(ServerSave $request)
     {
         $params = $request->validated();
+        if (array_key_exists('show', $params) && (int) $params['show'] === 1) {
+            $params['auto_hide_reason'] = null;
+            $params['auto_hide_at'] = null;
+        }
+
         if ($request->input('id')) {
             $server = Server::find($request->input('id'));
             if (!$server) {
@@ -91,6 +96,10 @@ class ManageController extends Controller
 
         if (array_key_exists('show', $params)) {
             $server->show = (int) $params['show'];
+            if ((int) $params['show'] === 1) {
+                $server->auto_hide_reason = null;
+                $server->auto_hide_at = null;
+            }
         }
         if (array_key_exists('machine_id', $params)) {
             $server->machine_id = $params['machine_id'] ?: null;
@@ -237,6 +246,10 @@ class ManageController extends Controller
         $update = [];
         if (array_key_exists('show', $params) && $params['show'] !== null) {
             $update['show'] = (int) $params['show'];
+            if ((int) $params['show'] === 1) {
+                $update['auto_hide_reason'] = null;
+                $update['auto_hide_at'] = null;
+            }
         }
         if (array_key_exists('enabled', $params) && $params['enabled'] !== null) {
             $update['enabled'] = (bool) $params['enabled'];

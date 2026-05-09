@@ -87,6 +87,17 @@ Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path
     ]);
 });
 
+$adminOpsRoute = function () {
+    return view('admin_ops', [
+        'title' => admin_setting('app_name', 'XBoard'),
+        'version' => app(UpdateService::class)->getCurrentVersion(),
+        'secure_path' => admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key'))))
+    ]);
+};
+
+Route::get('/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/ops', $adminOpsRoute);
+Route::redirect('/admin-ops', '/' . admin_setting('secure_path', admin_setting('frontend_admin_path', hash('crc32b', config('app.key')))) . '/ops');
+
 Route::get('/' . (admin_setting('subscribe_path', 's')) . '/{token}', [\App\Http\Controllers\V1\Client\ClientController::class, 'subscribe'])
     ->middleware('client')
     ->name('client.subscribe');

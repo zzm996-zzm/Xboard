@@ -21,17 +21,7 @@ class MachineController extends Controller
             ->orderBy('id')
             ->get()
             ->map(function (ServerMachine $machine) {
-                return [
-                    'id' => $machine->id,
-                    'name' => $machine->name,
-                    'notes' => $machine->notes,
-                    'is_active' => $machine->is_active,
-                    'last_seen_at' => $machine->last_seen_at,
-                    'load_status' => $machine->load_status,
-                    'servers_count' => $machine->servers_count,
-                    'created_at' => $machine->created_at,
-                    'updated_at' => $machine->updated_at,
-                ];
+                return $this->serializeMachine($machine, includeInstallCommand: true);
             });
 
         return $this->success($machines);
@@ -47,16 +37,35 @@ class MachineController extends Controller
             'name' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'is_active' => 'nullable|boolean',
+            'provider_name' => 'nullable|string|max:255',
+            'provider_region' => 'nullable|string|max:255',
+            'provider_plan' => 'nullable|string|max:255',
+            'monthly_cost' => 'nullable|integer|min:0',
+            'cost_currency' => 'nullable|string|max:8',
+            'traffic_limit_gb' => 'nullable|integer|min:0',
+            'billing_cycle' => 'nullable|string|max:255',
+            'purchase_url' => 'nullable|string',
         ]);
 
         if (!empty($params['id'])) {
             $machine = ServerMachine::find($params['id']);
-            $update = ['name' => $params['name']];
-            if (array_key_exists('notes', $params)) {
-                $update['notes'] = $params['notes'];
-            }
-            if (array_key_exists('is_active', $params)) {
-                $update['is_active'] = $params['is_active'];
+            $update = [];
+            foreach ([
+                'name',
+                'notes',
+                'is_active',
+                'provider_name',
+                'provider_region',
+                'provider_plan',
+                'monthly_cost',
+                'cost_currency',
+                'traffic_limit_gb',
+                'billing_cycle',
+                'purchase_url',
+            ] as $field) {
+                if (array_key_exists($field, $params)) {
+                    $update[$field] = $params[$field];
+                }
             }
             $machine->update($update);
             return $this->success(true);
@@ -66,14 +75,18 @@ class MachineController extends Controller
             'name' => $params['name'],
             'notes' => $params['notes'] ?? null,
             'is_active' => $params['is_active'] ?? true,
+            'provider_name' => $params['provider_name'] ?? null,
+            'provider_region' => $params['provider_region'] ?? null,
+            'provider_plan' => $params['provider_plan'] ?? null,
+            'monthly_cost' => $params['monthly_cost'] ?? null,
+            'cost_currency' => $params['cost_currency'] ?? 'USD',
+            'traffic_limit_gb' => $params['traffic_limit_gb'] ?? null,
+            'billing_cycle' => $params['billing_cycle'] ?? null,
+            'purchase_url' => $params['purchase_url'] ?? null,
             'token' => ServerMachine::generateToken(),
         ]);
 
-        return $this->success([
-            'id' => $machine->id,
-            'token' => $machine->token,
-            'install_command' => $this->buildInstallCommand($request, $machine),
-        ]);
+        return $this->success($this->serializeMachine($machine, includeInstallCommand: true, includeToken: true));
     }
 
     /**
@@ -211,5 +224,42 @@ class MachineController extends Controller
             escapeshellarg($machine->token),
             $machine->id
         );
+    }
+
+    private function serializeMachine(
+        ServerMachine $machine,
+        bool $includeInstallCommand = false,
+        bool $includeToken = false
+    ): array {
+        $data = [
+            'id' => $machine->id,
+            'name' => $machine->name,
+            'notes' => $machine->notes,
+            'is_active' => $machine->is_active,
+            'last_seen_at' => $machine->last_seen_at,
+            'setup_status' => $machine->setup_status,
+            'load_status' => $machine->load_status,
+            'servers_count' => $machine->servers_count ?? $machine->servers()->count(),
+            'provider_name' => $machine->provider_name,
+            'provider_region' => $machine->provider_region,
+            'provider_plan' => $machine->provider_plan,
+            'monthly_cost' => $machine->monthly_cost,
+            'cost_currency' => $machine->cost_currency,
+            'traffic_limit_gb' => $machine->traffic_limit_gb,
+            'billing_cycle' => $machine->billing_cycle,
+            'purchase_url' => $machine->purchase_url,
+            'created_at' => $machine->created_at,
+            'updated_at' => $machine->updated_at,
+        ];
+
+        if ($includeInstallCommand) {
+            $data['install_command'] = $this->buildInstallCommand(request(), $machine);
+        }
+
+        if ($includeToken) {
+            $data['token'] = $machine->token;
+        }
+
+        return $data;
     }
 }

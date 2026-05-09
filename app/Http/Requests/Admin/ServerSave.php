@@ -139,6 +139,18 @@ class ServerSave extends FormRequest
             'rate_time_ranges.*.rate' => 'required_with:rate_time_ranges|numeric|min:0',
             'protocol_settings' => 'array',
             'transfer_enable' => 'nullable|integer|min:0',
+            'provider_name' => 'nullable|string|max:255',
+            'provider_plan' => 'nullable|string|max:255',
+            'monthly_cost' => 'nullable|integer|min:0',
+            'cost_currency' => 'nullable|string|max:8',
+            'traffic_cost_per_gb' => 'nullable|integer|min:0',
+            'commercial_notes' => 'nullable|string',
+            'auto_hide_enabled' => 'nullable|boolean',
+            'auto_hide_reason' => 'nullable|string|max:255',
+            'auto_hide_at' => 'nullable|integer',
+            'health_offline_minutes' => 'nullable|integer|min:1|max:1440',
+            'health_traffic_threshold' => 'nullable|integer|min:1|max:100',
+            'health_cpu_threshold' => 'nullable|integer|min:1|max:100',
         ];
     }
 

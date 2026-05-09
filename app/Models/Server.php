@@ -56,6 +56,18 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
  * @property int $transfer_enable 流量上限，0或者null表示不限制
  * @property int $u 当前上传流量
  * @property int $d 当前下载流量
+ * @property string|null $provider_name 服务商
+ * @property string|null $provider_plan 服务商套餐
+ * @property int|null $monthly_cost 月成本（分）
+ * @property string|null $cost_currency 成本币种
+ * @property int|null $traffic_cost_per_gb 每 GB 流量成本（分）
+ * @property string|null $commercial_notes 商业备注
+ * @property bool $auto_hide_enabled 是否启用自动隐藏
+ * @property string|null $auto_hide_reason 自动隐藏原因
+ * @property int|null $auto_hide_at 自动隐藏时间
+ * @property int|null $health_offline_minutes 离线阈值分钟
+ * @property int|null $health_traffic_threshold 流量阈值百分比
+ * @property int|null $health_cpu_threshold CPU 阈值百分比
  */
 class Server extends Model
 {
@@ -133,6 +145,13 @@ class Server extends Model
         'u' => 'integer',
         'd' => 'integer',
         'machine_id' => 'integer',
+        'monthly_cost' => 'integer',
+        'traffic_cost_per_gb' => 'integer',
+        'auto_hide_enabled' => 'boolean',
+        'auto_hide_at' => 'integer',
+        'health_offline_minutes' => 'integer',
+        'health_traffic_threshold' => 'integer',
+        'health_cpu_threshold' => 'integer',
     ];
 
     private const MULTIPLEX_CONFIGURATION = [

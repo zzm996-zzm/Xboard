@@ -2,6 +2,7 @@
 namespace App\Http\Routes\V2;
 
 use App\Http\Controllers\V2\Admin\ConfigController;
+use App\Http\Controllers\V2\Admin\CommercialController;
 use App\Http\Controllers\V2\Admin\MailTemplateController;
 use App\Http\Controllers\V2\Admin\PlanController;
 use App\Http\Controllers\V2\Admin\Server\GroupController;
@@ -151,6 +152,15 @@ class AdminRoute
                 $router->get('/getRanking', [StatController::class, 'getRanking']);
                 $router->get('/getStatRecord', [StatController::class, 'getStatRecord']);
                 $router->get('/getTrafficRank', [StatController::class, 'getTrafficRank']);
+            });
+
+            // Commercial operations
+            $router->group([
+                'prefix' => 'commercial'
+            ], function ($router) {
+                $router->get('/overview', [CommercialController::class, 'overview']);
+                $router->get('/nodes', [CommercialController::class, 'nodes']);
+                $router->get('/machines', [CommercialController::class, 'machines']);
             });
 
             // Notice
