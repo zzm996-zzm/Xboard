@@ -47,6 +47,12 @@ type CheckoutState = {
 
 type AccountView = 'overview' | 'security' | 'orders' | 'tickets' | 'invite';
 
+type AccountNotice = {
+  title: string;
+  body: string;
+  primary: string;
+};
+
 const AUTH_KEY = 'northline.auth';
 
 const periods: Array<{ key: PeriodKey; label: string; months?: number }> = [
@@ -77,6 +83,8 @@ function App() {
   const [trafficLogs, setTrafficLogs] = React.useState<TrafficLog[]>([]);
   const [stats, setStats] = React.useState<[number, number, number]>([0, 0, 0]);
   const [message, setMessage] = React.useState<string>('');
+  const [accountNotice, setAccountNotice] = React.useState<AccountNotice | null>(null);
+  const [orderNoticeDismissed, setOrderNoticeDismissed] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [busyPlanId, setBusyPlanId] = React.useState<number | null>(null);
   const [checkout, setCheckout] = React.useState<CheckoutState | null>(null);
@@ -157,6 +165,16 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [page]);
 
+  React.useEffect(() => {
+    if (auth?.auth_data && stats[0] > 0 && !orderNoticeDismissed) {
+      setAccountNotice({
+        title: '你有未完成的订单',
+        body: `当前还有 ${stats[0]} 个待支付订单。为了避免重复购买，请先完成支付或取消旧订单。`,
+        primary: '去处理订单'
+      });
+    }
+  }, [auth?.auth_data, orderNoticeDismissed, stats]);
+
   async function handleLogin(email: string, password: string) {
     const nextAuth = await api.login(email, password);
     saveAuth(nextAuth);
@@ -182,6 +200,8 @@ function App() {
   function handleLogout() {
     saveAuth(null);
     setAuth(null);
+    setAccountNotice(null);
+    setOrderNoticeDismissed(false);
     goAccount();
     refresh(null);
   }
@@ -194,8 +214,7 @@ function App() {
     }
 
     if (stats[0] > 0) {
-      setMessage(`你有 ${stats[0]} 个待支付订单，可以继续完成支付。`);
-      goAccount('orders');
+      showOrderNotice(`你有 ${stats[0]} 个待支付订单，可以继续完成支付或取消旧订单。`);
       return;
     }
 
@@ -289,7 +308,7 @@ function App() {
       go('checkout');
       await refresh(auth);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '创建订单失败');
+      handleOrderCreationError(error, '创建订单失败');
     } finally {
       setBusyPlanId(null);
     }
@@ -354,10 +373,33 @@ function App() {
       go('checkout');
       await refresh(auth);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '创建流量重置订单失败');
+      handleOrderCreationError(error, '创建流量重置订单失败');
     } finally {
       setBusyPlanId(null);
     }
+  }
+
+  function showOrderNotice(body: string) {
+    setAccountNotice({
+      title: '需要先处理订单',
+      body,
+      primary: '去处理订单'
+    });
+  }
+
+  function handleOrderCreationError(error: unknown, fallback: string) {
+    const text = error instanceof Error ? error.message : fallback;
+    if (isOrderBlockingMessage(text)) {
+      showOrderNotice('你有未付款或开通中的订单。请先完成支付或取消旧订单，然后再重新操作。');
+      return;
+    }
+    setMessage(text);
+  }
+
+  function openOrdersFromNotice() {
+    setAccountNotice(null);
+    setOrderNoticeDismissed(true);
+    goAccount('orders');
   }
 
   async function continueCheckout(order: OrderRecord) {
@@ -447,6 +489,16 @@ function App() {
       </header>
 
       {message && <div className="toast">{message}</div>}
+      {accountNotice && (
+        <NoticeDialog
+          notice={accountNotice}
+          onPrimary={openOrdersFromNotice}
+          onClose={() => {
+            setAccountNotice(null);
+            setOrderNoticeDismissed(true);
+          }}
+        />
+      )}
 
       <main className="content">
         {page === 'home' && (
@@ -494,6 +546,28 @@ function App() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+function NoticeDialog({ notice, onPrimary, onClose }: {
+  notice: AccountNotice;
+  onPrimary: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="notice-backdrop" role="dialog" aria-modal="true" aria-labelledby="account-notice-title">
+      <div className="notice-dialog">
+        <div className="notice-icon"><ReceiptText size={24} /></div>
+        <div>
+          <h2 id="account-notice-title">{notice.title}</h2>
+          <p>{notice.body}</p>
+        </div>
+        <div className="notice-actions">
+          <button className="secondary-button" onClick={onClose}>稍后处理</button>
+          <button className="primary-button" onClick={onPrimary}>{notice.primary}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1266,6 +1340,10 @@ function orderStatusLabel(status?: number) {
 
 function isPendingOrder(status?: number) {
   return Number(status) === 0;
+}
+
+function isOrderBlockingMessage(text: string) {
+  return /unpaid|pending|待支付|未付款|开通中|订单/.test(text);
 }
 
 function periodName(period?: PeriodKey | string) {
