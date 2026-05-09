@@ -248,6 +248,197 @@ a {
   gap: 18px;
 }
 
+.subscription-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+  gap: 18px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 26px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(239, 246, 255, 0.64)),
+    rgba(255, 255, 255, 0.4);
+  box-shadow: var(--shadow);
+}
+
+.subscription-main,
+.subscription-import {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+}
+
+.subscription-main {
+  display: grid;
+  gap: 22px;
+  min-height: 362px;
+  padding: 34px;
+  overflow: hidden;
+  position: relative;
+  background:
+    radial-gradient(circle at 88% 100%, rgba(0, 113, 227, 0.18), transparent 23rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 255, 0.9));
+}
+
+.subscription-main:after {
+  content: "";
+  position: absolute;
+  right: -110px;
+  bottom: -170px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(0, 113, 227, 0.13);
+  border-radius: 50%;
+}
+
+.subscription-main > * {
+  position: relative;
+  z-index: 1;
+}
+
+.subscription-heading {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.subscription-heading > svg {
+  flex: none;
+  margin-top: 5px;
+  color: var(--primary);
+}
+
+.subscription-heading h1 {
+  margin: 0 0 8px;
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.subscription-heading p,
+.subscription-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.subscription-copy {
+  max-width: 680px;
+  font-size: 16px;
+}
+
+.subscription-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 720px;
+}
+
+.subscription-stats .metric {
+  padding-right: 16px;
+  border-right: 1px solid rgba(16, 24, 40, 0.16);
+}
+
+.subscription-stats .metric:last-child {
+  border-right: 0;
+}
+
+.subscription-stats .metric strong {
+  font-size: 30px;
+}
+
+.subscription-lines {
+  display: grid;
+  gap: 10px;
+  max-width: 720px;
+}
+
+.subscription-lines button {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 42px;
+  padding: 0;
+  color: #344054;
+  background: transparent;
+  text-align: left;
+  font-weight: 760;
+}
+
+.subscription-lines button > svg:first-child {
+  color: var(--ink);
+}
+
+.subscription-lines span {
+  color: var(--muted);
+}
+
+.subscription-lines strong {
+  color: var(--ink);
+}
+
+.subscription-lines button > svg:last-child {
+  color: var(--muted);
+}
+
+.subscription-import {
+  display: grid;
+  align-content: center;
+  gap: 22px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 100% 100%, rgba(0, 113, 227, 0.12), transparent 13rem),
+    rgba(255, 255, 255, 0.76);
+}
+
+.client-mark-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.client-mark-row span {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 18px;
+  background: #eef5ff;
+  color: var(--primary);
+}
+
+.subscription-import strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 18px;
+}
+
+.subscription-import p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.import-links {
+  display: grid;
+  gap: 10px;
+}
+
+.import-links button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  color: #344054;
+  background: transparent;
+  font-weight: 760;
+}
+
+.import-links button:hover {
+  color: var(--primary);
+}
+
 .hero-panel,
 .status-card,
 .panel,
@@ -443,6 +634,10 @@ a {
 
 .quick-grid {
   grid-template-columns: repeat(3, 1fr);
+}
+
+.support-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .action-card {
@@ -1213,7 +1408,9 @@ a {
   }
 
   .hero-grid,
+  .subscription-hero,
   .quick-grid,
+  .support-grid,
   .section-grid,
   .plans-grid,
   .checkout-grid,
@@ -1229,6 +1426,33 @@ a {
   .hero-panel {
     min-height: auto;
     padding: 28px;
+  }
+
+  .subscription-hero {
+    grid-template-columns: 1fr;
+    padding: 0;
+    border-radius: 22px;
+  }
+
+  .subscription-main,
+  .subscription-import {
+    padding: 24px;
+  }
+
+  .subscription-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-stats .metric {
+    padding-right: 0;
+    padding-bottom: 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(16, 24, 40, 0.12);
+  }
+
+  .subscription-stats .metric:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
   }
 
   .login-copy,

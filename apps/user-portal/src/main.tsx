@@ -27,8 +27,7 @@ import {
   TicketCheck,
   UserRound,
   WalletCards,
-  Wifi,
-  Zap
+  Wifi
 } from 'lucide-react';
 import { api, type AuthData, type CheckoutResponse, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
 import './styles.css';
@@ -642,42 +641,70 @@ function HomePage(props: {
   const planName = props.subscribe?.plan?.name || props.plans[0]?.name || '未选择套餐';
   const remaining = Math.max(0, props.totalBytes - props.usedBytes);
   const onlineNodes = props.servers.filter((server) => server.is_online).length;
+  const resetDate = formatDate(props.subscribe?.next_reset_at);
+  const expireDate = formatDate(props.subscribe?.expired_at);
 
   return (
     <section className="page-stack">
-      <div className="hero-grid">
-        <div className="hero-panel">
-          <div className="eyebrow"><BadgeCheck size={17} /> {props.isLoggedIn ? `${planName} active` : 'Member access'}</div>
-          <h1>{props.isLoggedIn ? '你的网络会员中心' : '欢迎回来'}</h1>
-          <p>{props.isLoggedIn ? '一键导入客户端，查看剩余流量，管理套餐续费。所有复杂配置都已经替你收好。' : '登录后管理订阅、复制配置、查看流量，并继续完成未支付订单。'}</p>
-          <div className="hero-actions">
-            <button className="primary-button" onClick={props.onCopySubscribe}><Copy size={18} />复制订阅链接</button>
-            <button className="secondary-button" onClick={props.onPlan}>查看套餐<ArrowRight size={18} /></button>
-          </div>
-        </div>
-        <div className="status-card">
-          <div className="status-top">
+      <div className="subscription-hero">
+        <div className="subscription-main">
+          <div className="subscription-heading">
+            <PackageCheck size={26} />
             <div>
-              <span className="muted">{props.isLoggedIn ? '剩余流量' : '当前状态'}</span>
-              <strong>{props.isLoggedIn ? formatBytes(remaining) : props.loading ? '加载中' : '待登录'}</strong>
+              <h1>{props.isLoggedIn ? '已购买订阅' : '网络会员中心'}</h1>
+              <p>{props.isLoggedIn ? `${planName} · ${props.user?.email || '当前账号'}` : '登录后复制订阅、查看流量、管理套餐。'}</p>
             </div>
-            <span className="live-pill">{props.isLoggedIn ? `${onlineNodes}/${props.servers.length} 节点在线` : '安全连接'}</span>
+          </div>
+          <div className="subscription-copy">
+            {props.isLoggedIn ? '专属线路已经准备好，可以复制订阅链接导入客户端。' : '购买套餐后会生成你的专属订阅链接。'}
+          </div>
+          <div className="subscription-stats">
+            <Metric label="套餐总流量" value={props.isLoggedIn ? formatBytes(props.totalBytes) : '登录后显示'} />
+            <Metric label="本月已用" value={props.isLoggedIn ? formatBytes(props.usedBytes) : '-'} />
+            <Metric label="剩余流量" value={props.isLoggedIn ? formatBytes(remaining) : '-'} />
           </div>
           <div className="usage-meter">
             <span style={{ width: `${props.progress * 100}%` }} />
           </div>
-          <div className="usage-stats">
-            <Metric label="本月已用" value={props.isLoggedIn ? formatBytes(props.usedBytes) : '登录后显示'} />
-            <Metric label="套餐总量" value={props.isLoggedIn ? formatBytes(props.totalBytes) : `${props.plans.length} 个套餐`} />
-            <Metric label="到期时间" value={formatDate(props.subscribe?.expired_at)} />
+          <div className="subscription-lines">
+            <button onClick={props.onPlan}>
+              <ReceiptText size={18} />
+              <span>到期时间</span>
+              <strong>{expireDate}</strong>
+              <ArrowRight size={17} />
+            </button>
+            <button onClick={props.onResetTraffic}>
+              <RefreshCcw size={18} />
+              <span>重置日期</span>
+              <strong>{resetDate}</strong>
+              <ArrowRight size={17} />
+            </button>
           </div>
+        </div>
+        <div className="subscription-import">
+          <div className="client-mark-row">
+            {setupClients.slice(0, 4).map(({ name, icon: Icon }) => (
+              <span key={name} title={name}><Icon size={28} /></span>
+            ))}
+          </div>
+          <div>
+            <strong>支持客户端一键导入</strong>
+            <p>Clash Verge、Shadowrocket、Stash 等客户端均可使用订阅链接。</p>
+          </div>
+          <button className="primary-button wide" onClick={props.onCopySubscribe} disabled={!props.isLoggedIn}>
+            <Copy size={18} />复制订阅链接
+          </button>
+          <div className="import-links">
+            <button onClick={props.onSetup}><MessageCircle size={17} />不会用？查看教程<ArrowRight size={16} /></button>
+            <button onClick={props.onSetup}><DownloadCloud size={17} />一键导入通用客户端<ArrowRight size={16} /></button>
+          </div>
+          <span className="live-pill">{props.isLoggedIn ? `${onlineNodes}/${props.servers.length} 节点在线` : props.loading ? '加载中' : '待登录'}</span>
         </div>
       </div>
 
-      <div className="quick-grid">
-        <ActionCard icon={Zap} title="快速导入" body="复制专属订阅链接，在客户端中粘贴导入。" onClick={props.onSetup} />
-        <ActionCard icon={DownloadCloud} title="使用教程" body="按设备查看下载、导入、刷新配置步骤。" onClick={props.onSetup} />
+      <div className="quick-grid support-grid">
         <ActionCard icon={RefreshCcw} title="重置流量" body="流量不足时购买重置包，恢复当前套餐流量。" onClick={props.onResetTraffic} />
+        <ActionCard icon={TicketCheck} title="工单帮助" body="连接异常、订单问题、套餐咨询都可以提交工单。" onClick={props.onHelp} />
       </div>
 
       <div className="section-grid">
