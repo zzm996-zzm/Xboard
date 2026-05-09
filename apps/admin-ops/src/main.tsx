@@ -13,6 +13,7 @@ import {
   Loader2,
   LockKeyhole,
   LogOut,
+  Pencil,
   Plus,
   RefreshCcw,
   Router,
@@ -281,19 +282,29 @@ function MachinesView({ machines, onCreate, onEdit }: { machines: Machine[]; onC
       </div>
       <div className="data-table machine-table">
         <div className="table-head">
-          <span>机器</span><span>状态</span><span>供应商</span><span>成本</span><span>流量</span><span>命令</span>
+          <span>机器</span><span>状态</span><span>供应商</span><span>成本</span><span>流量</span><span>操作</span>
         </div>
         {machines.map((machine) => (
           <div className="table-row" key={machine.id}>
-            <button className="link-cell" onClick={() => onEdit(machine)}>
+            <div>
               <strong>{machine.name}</strong>
               <small>{machine.servers_count} 个节点</small>
-            </button>
+            </div>
             <StatusBadge status={machine.setup_status} />
-            <span>{machine.provider_name || '-'}</span>
+            <div>
+              <strong>{machine.provider_name || '-'}</strong>
+              <small>{machine.provider_region || machine.provider_plan || ''}</small>
+            </div>
             <span>{money(machine.monthly_cost)} {machine.cost_currency || 'USD'}</span>
-            <span>{machine.traffic_limit_gb ? `${machine.traffic_limit_gb} GB` : '-'}</span>
-            <CopyButton text={machine.install_command || ''} />
+            <TrafficCell
+              usedBytes={machine.month_traffic_bytes || 0}
+              limitGb={machine.traffic_limit_gb}
+              percent={machine.traffic_usage_percent}
+            />
+            <div className="row-actions">
+              <button className="secondary-button" onClick={() => onEdit(machine)}><Pencil size={14} />编辑</button>
+              <CopyButton text={machine.install_command || ''} />
+            </div>
           </div>
         ))}
       </div>
@@ -318,7 +329,11 @@ function NodesView({ nodes }: { nodes: NodeMetric[] }) {
             <span>{node.is_online ? '在线' : '离线'} / {node.show ? '显示' : '隐藏'}</span>
             <span>{node.machine_name || '-'}</span>
             <span>{money(node.monthly_cost)} {node.cost_currency || 'USD'}</span>
-            <span>{bytes(node.month_traffic_bytes)}{node.traffic_usage_percent !== null && node.traffic_usage_percent !== undefined ? ` · ${node.traffic_usage_percent}%` : ''}</span>
+            <TrafficCell
+              usedBytes={node.month_traffic_bytes}
+              limitBytes={node.traffic_limit_bytes}
+              percent={node.traffic_usage_percent}
+            />
             <RiskBadge risk={node.risk} />
             <span>{node.auto_hide_enabled ? (node.auto_hide_reason || '已启用') : '关闭'}</span>
           </div>
@@ -429,6 +444,29 @@ function CopyButton({ text }: { text: string }) {
     }}>
       <Clipboard size={14} />{copied ? '已复制' : '复制'}
     </button>
+  );
+}
+
+function TrafficCell({ usedBytes, limitGb, limitBytes, percent }: {
+  usedBytes: number;
+  limitGb?: number | null;
+  limitBytes?: number | null;
+  percent?: number | null;
+}) {
+  const resolvedLimitBytes = limitBytes || (limitGb ? limitGb * 1024 * 1024 * 1024 : null);
+  const resolvedPercent = percent ?? (resolvedLimitBytes ? Number(((usedBytes / resolvedLimitBytes) * 100).toFixed(1)) : null);
+
+  return (
+    <div className="traffic-cell">
+      <strong>{bytes(usedBytes)}</strong>
+      <small>{resolvedLimitBytes ? `/ ${bytes(resolvedLimitBytes)}` : '未填写套餐流量'}</small>
+      {resolvedPercent !== null && resolvedPercent !== undefined && (
+        <div className="traffic-meter" aria-label={`流量使用率 ${resolvedPercent}%`}>
+          <span style={{ width: `${Math.min(resolvedPercent, 100)}%` }} />
+        </div>
+      )}
+      {resolvedPercent !== null && resolvedPercent !== undefined && <small>{resolvedPercent}%</small>}
+    </div>
   );
 }
 

@@ -306,7 +306,7 @@ nav {
 
 .machine-table .table-head,
 .machine-table .table-row {
-  grid-template-columns: 1.4fr .7fr 1fr .8fr .8fr .7fr;
+  grid-template-columns: 1.25fr .65fr 1fr .75fr 1fr 1.2fr;
 }
 
 .node-table .table-head,
@@ -334,6 +334,25 @@ nav {
   background: transparent;
   color: inherit;
   padding: 0;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.secondary-button {
+  border: 1px solid #cdd6ce;
+  background: #fffdf6;
+  color: #17201c;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
 }
 
 .status-badge,
@@ -376,6 +395,33 @@ nav {
   justify-content: center;
   gap: 6px;
   padding: 8px 10px;
+}
+
+.traffic-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.traffic-cell strong,
+.traffic-cell small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.traffic-meter {
+  height: 6px;
+  width: min(130px, 100%);
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e1e6df;
+}
+
+.traffic-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #54715d;
 }
 
 .copy-button:disabled {
