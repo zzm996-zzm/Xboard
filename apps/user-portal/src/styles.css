@@ -1435,6 +1435,60 @@ a {
   align-items: flex-start;
 }
 
+.ticket-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(18, 103, 255, 0.1);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.94)),
+    #f4f8ff;
+}
+
+.ticket-form-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ticket-form-head strong {
+  font-size: 18px;
+}
+
+.ticket-form input,
+.ticket-form textarea,
+.ticket-form select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+
+.ticket-form input,
+.ticket-form select {
+  height: 46px;
+  padding: 0 14px;
+}
+
+.ticket-form textarea {
+  resize: vertical;
+  min-height: 118px;
+  padding: 14px;
+  line-height: 1.6;
+}
+
+.ticket-form input:focus,
+.ticket-form textarea:focus,
+.ticket-form select:focus {
+  border-color: rgba(18, 103, 255, 0.52);
+  box-shadow: 0 0 0 4px rgba(18, 103, 255, 0.1);
+}
+
 .action-line {
   justify-content: flex-start;
   gap: 12px;

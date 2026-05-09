@@ -279,23 +279,22 @@ function App() {
     go('setup');
   }
 
-  async function copySubscribe(flag?: string) {
+  async function copySubscribe(flag = 'clash') {
     if (!subscriptionUrl) {
       setMessage('请先登录，登录后才能复制你的专属订阅链接。');
       go('account');
       return;
     }
-    const url = flag ? withQuery(subscriptionUrl, 'flag', flag) : subscriptionUrl;
+    const url = withQuery(subscriptionUrl, 'flag', flag);
     await copyText(url);
-    setMessage(flag ? `已复制 ${flag} 订阅链接` : '已复制订阅链接');
+    setMessage(`已复制 ${flag} 订阅链接`);
   }
 
   async function resetSecurity() {
     if (!auth?.auth_data) return;
-    const url = await api.resetSecurity(auth.auth_data);
+    await api.resetSecurity(auth.auth_data);
     await refresh(auth);
-    await copyText(url);
-    setMessage('订阅链接已重置，并复制到剪贴板。旧链接会失效。');
+    setMessage('订阅链接已重置。旧链接已失效，请重新复制 Clash 订阅链接并导入客户端。');
   }
 
   async function startCheckout(plan: Plan, selectedPeriod?: PeriodKey) {
@@ -1007,6 +1006,11 @@ function AccountPage(props: {
     setError('');
   }
 
+  function showResetSecurity() {
+    setView('security');
+    setError('');
+  }
+
   function showWallet() {
     setView('wallet');
     setError('');
@@ -1031,6 +1035,13 @@ function AccountPage(props: {
     withBusy(async () => {
       await api.createInviteCode(token);
       setInvite(await api.invite(token));
+    });
+  }
+
+  async function createTicket(subject: string, message: string, level: number) {
+    await withBusy(async () => {
+      await api.createTicket(token, subject, message, level);
+      setTickets(await api.tickets(token));
     });
   }
 
@@ -1065,7 +1076,7 @@ function AccountPage(props: {
               <button className={view === 'overview' ? 'active' : ''} onClick={showOverview}>
                 <PackageCheck size={19} />订阅概览
               </button>
-              <button onClick={props.onResetSecurity}>
+              <button className={view === 'security' ? 'active' : ''} onClick={showResetSecurity}>
                 <ShieldCheck size={19} />重置订阅信息
               </button>
               <button className={view === 'security' ? 'active' : ''} onClick={showSecurity}>
@@ -1096,6 +1107,7 @@ function AccountPage(props: {
             onInvite={showInvite}
             onTickets={showTickets}
             onCreateInvite={createInviteCode}
+            onCreateTicket={createTicket}
             onResetSecurity={props.onResetSecurity}
             onPayOrder={props.onPayOrder}
           />
@@ -1121,6 +1133,7 @@ function AccountDetailPanel({
   onInvite,
   onTickets,
   onCreateInvite,
+  onCreateTicket,
   onResetSecurity,
   onPayOrder
 }: {
@@ -1139,10 +1152,16 @@ function AccountDetailPanel({
   onInvite: () => void;
   onTickets: () => void;
   onCreateInvite: () => void;
+  onCreateTicket: (subject: string, message: string, level: number) => Promise<void>;
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
 }) {
   const [payingTradeNo, setPayingTradeNo] = React.useState<string | null>(null);
+  const [ticketSubject, setTicketSubject] = React.useState('');
+  const [ticketMessage, setTicketMessage] = React.useState('');
+  const [ticketLevel, setTicketLevel] = React.useState(0);
+  const [ticketFormError, setTicketFormError] = React.useState('');
+  const [showResetConfirm, setShowResetConfirm] = React.useState(false);
 
   async function continuePayment(order: OrderRecord) {
     setPayingTradeNo(order.trade_no);
@@ -1151,6 +1170,25 @@ function AccountDetailPanel({
     } finally {
       setPayingTradeNo(null);
     }
+  }
+
+  function confirmResetSecurity() {
+    setShowResetConfirm(true);
+  }
+
+  async function submitTicket(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const subject = ticketSubject.trim();
+    const message = ticketMessage.trim();
+    if (!subject || !message) {
+      setTicketFormError('请填写工单主题和问题描述。');
+      return;
+    }
+    setTicketFormError('');
+    await onCreateTicket(subject, message, ticketLevel);
+    setTicketSubject('');
+    setTicketMessage('');
+    setTicketLevel(0);
   }
 
   const panelCopy: Record<AccountView, { icon: React.ElementType; title: string; subtitle: string }> = {
@@ -1165,6 +1203,29 @@ function AccountDetailPanel({
 
   return (
     <div className="panel account-detail">
+      {showResetConfirm && (
+        <div className="notice-backdrop" role="dialog" aria-modal="true" aria-labelledby="reset-security-title">
+          <div className="notice-dialog">
+            <div className="notice-icon"><ShieldCheck size={24} /></div>
+            <div>
+              <h2 id="reset-security-title">确认重置订阅链接</h2>
+              <p>重置后旧链接会立即失效，所有客户端都需要重新复制 Clash 订阅链接并导入。</p>
+            </div>
+            <div className="notice-actions">
+              <button className="secondary-button" onClick={() => setShowResetConfirm(false)}>取消</button>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setShowResetConfirm(false);
+                  onResetSecurity();
+                }}
+              >
+                确认重置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="account-detail-head">
         <div>
           <ActiveIcon size={24} />
@@ -1202,11 +1263,11 @@ function AccountDetailPanel({
         <div className="wallet-panel">
           <div>
             <span>余额</span>
-            <strong>{formatMoney(user?.balance)}</strong>
+            <strong>{formatAccountMoney(user?.balance)}</strong>
           </div>
           <div>
             <span>邀请佣金</span>
-            <strong>{formatMoney(user?.commission_balance)}</strong>
+            <strong>{formatAccountMoney(user?.commission_balance)}</strong>
           </div>
           <p>余额可用于后续套餐购买；邀请佣金会根据后台配置发放。</p>
         </div>
@@ -1219,7 +1280,7 @@ function AccountDetailPanel({
               <strong>订阅链接</strong>
               <p>重置后旧链接会立即失效，客户端需要重新导入。</p>
             </div>
-            <button className="secondary-button" onClick={onResetSecurity}>重置链接</button>
+            <button className="secondary-button" onClick={confirmResetSecurity}>重置链接</button>
           </div>
           <div className="record-row muted-row">
             <div>
@@ -1274,6 +1335,30 @@ function AccountDetailPanel({
 
       {!busy && view === 'tickets' && (
         <div className="record-list">
+          <form className="ticket-form" onSubmit={submitTicket}>
+            <div className="ticket-form-head">
+              <strong>新建工单</strong>
+              <select value={ticketLevel} onChange={(event) => setTicketLevel(Number(event.target.value))}>
+                <option value={0}>普通问题</option>
+                <option value={1}>较急问题</option>
+                <option value={2}>紧急问题</option>
+              </select>
+            </div>
+            <input
+              value={ticketSubject}
+              onChange={(event) => setTicketSubject(event.target.value)}
+              placeholder="工单主题，例如：节点无法连接"
+              maxLength={80}
+            />
+            <textarea
+              value={ticketMessage}
+              onChange={(event) => setTicketMessage(event.target.value)}
+              placeholder="请描述你的问题、客户端、节点名称和报错现象。"
+              rows={4}
+            />
+            {ticketFormError && <div className="inline-error">{ticketFormError}</div>}
+            <button className="primary-button wide" disabled={busy}>提交工单</button>
+          </form>
           {(tickets || []).slice(0, 8).map((ticket) => (
             <div className="record-row" key={ticket.id}>
               <div>
@@ -1599,6 +1684,12 @@ function formatMoney(value?: number | null) {
   if (value === null || value === undefined) return '-';
   if (value <= 0) return '免费';
   const amount = value / 100;
+  return `$${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
+}
+
+function formatAccountMoney(value?: number | null) {
+  if (value === null || value === undefined) return '-';
+  const amount = Math.max(0, value) / 100;
   return `$${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
 }
 

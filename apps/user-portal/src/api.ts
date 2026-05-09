@@ -293,6 +293,14 @@ export const api = {
     return request<unknown>('/user/ticket/fetch', { token }).then(asList<TicketRecord>);
   },
 
+  createTicket(token: string, subject: string, message: string, level = 0) {
+    return request<boolean>('/user/ticket/save', {
+      method: 'POST',
+      token,
+      body: { subject, message, level }
+    });
+  },
+
   resetSecurity(token: string) {
     return request<string>('/user/resetSecurity', { token });
   }
