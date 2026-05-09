@@ -27,7 +27,8 @@ import {
   TicketCheck,
   UserRound,
   WalletCards,
-  Wifi
+  Wifi,
+  X
 } from 'lucide-react';
 import { api, type AuthData, type CheckoutResponse, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
 import './styles.css';
@@ -46,7 +47,7 @@ type CheckoutState = {
   error?: string;
 };
 
-type AccountView = 'overview' | 'security' | 'orders' | 'tickets' | 'invite';
+type AccountView = 'overview' | 'security' | 'orders' | 'tickets' | 'invite' | 'wallet';
 
 type AccountNotice = {
   title: string;
@@ -1006,6 +1007,11 @@ function AccountPage(props: {
     setError('');
   }
 
+  function showWallet() {
+    setView('wallet');
+    setError('');
+  }
+
   function showOrders() {
     setView('orders');
     withBusy(async () => setOrders(await api.orders(token)));
@@ -1030,60 +1036,69 @@ function AccountPage(props: {
 
   return (
     <section className="page-stack">
-      <div className="account-hero">
-        <div className="avatar-large">{initials(props.user?.email || 'zz')}</div>
-        <div>
-          <h1>{props.user?.email || '已登录用户'}</h1>
-          <p>账号创建于 {formatDate(props.user?.created_at)}，你可以在这里管理订阅和安全设置。</p>
-        </div>
-        <button className="danger-button" onClick={props.onLogout}><LogOut size={18} />退出登录</button>
-      </div>
-      <div className="section-grid">
-        <div className="panel">
-          <PanelHeader icon={WalletCards} title="账户资产" action="账户概览" onAction={showOverview} />
-          <div className="account-list">
-            <Metric label="余额" value={formatMoney(props.user?.balance)} />
-            <Metric label="邀请佣金" value={formatMoney(props.user?.commission_balance)} />
-            <Metric label="待支付订单" value={String(props.stats[0] || 0)} />
+      <div className="account-shell">
+        <div className="account-profile">
+          <div className="avatar-large">{initials(props.user?.email || 'zz')}</div>
+          <div>
+            <h1>{props.user?.email || '已登录用户'}</h1>
+            <p>账号创建于 {formatDate(props.user?.created_at)}</p>
           </div>
+          <button className="danger-button" onClick={props.onLogout}><LogOut size={18} />退出登录</button>
         </div>
-        <div className="panel">
-          <PanelHeader icon={LockKeyhole} title="安全与偏好" action="管理" onAction={showSecurity} />
-          <div className="settings-list">
-            <ActionLine icon={KeyRound} title="重置订阅链接" onClick={props.onResetSecurity} />
-            <ActionLine icon={TicketCheck} title={`未结工单 ${props.stats[1] || 0}`} onClick={showTickets} />
-            <ActionLine icon={CircleDollarSign} title={`邀请用户 ${props.stats[2] || 0}`} onClick={showInvite} />
-          </div>
-        </div>
-      </div>
-      <AccountDetailPanel
-        view={view}
-        user={props.user}
-        subscribe={props.subscribe}
-        orders={orders}
-        invite={invite}
-        tickets={tickets}
-        busy={busy}
-        error={error}
-        onOrders={showOrders}
-        onOverview={showOverview}
-        onSecurity={showSecurity}
-        onInvite={showInvite}
-        onTickets={showTickets}
-        onCreateInvite={createInviteCode}
-        onResetSecurity={props.onResetSecurity}
-        onPayOrder={props.onPayOrder}
-      />
-      <div className="panel">
-        <PanelHeader icon={ReceiptText} title="本月流量记录" action={`${props.trafficLogs.length} 条`} />
-        <div className="traffic-table">
-          {props.trafficLogs.slice(0, 8).map((log) => (
-            <div className="traffic-row" key={`${log.record_at}-${log.u}-${log.d}`}>
-              <span>{formatDate(log.record_at)}</span>
-              <strong>{formatBytes((log.u || 0) + (log.d || 0))}</strong>
+        <div className="account-layout">
+          <aside className="account-sidebar">
+            <div className="account-shortcuts">
+              <button className={view === 'orders' ? 'active' : ''} onClick={showOrders}>
+                <span><ReceiptText size={22} /></span>
+                订单
+              </button>
+              <button className={view === 'tickets' ? 'active' : ''} onClick={showTickets}>
+                <span><TicketCheck size={22} /></span>
+                工单
+              </button>
+              <button className={view === 'wallet' ? 'active' : ''} onClick={showWallet}>
+                <span><WalletCards size={22} /></span>
+                钱包
+              </button>
             </div>
-          ))}
-          {!props.trafficLogs.length && <EmptyState text="本月暂无流量明细。" />}
+            <div className="account-menu">
+              <button className={view === 'overview' ? 'active' : ''} onClick={showOverview}>
+                <PackageCheck size={19} />订阅概览
+              </button>
+              <button onClick={props.onResetSecurity}>
+                <ShieldCheck size={19} />重置订阅信息
+              </button>
+              <button className={view === 'security' ? 'active' : ''} onClick={showSecurity}>
+                <KeyRound size={19} />修改账号安全
+              </button>
+              <div className="account-menu-title">增长与协议</div>
+              <button className={view === 'invite' ? 'active' : ''} onClick={showInvite}>
+                <CircleDollarSign size={19} />邀请与返佣
+              </button>
+              <button className={view === 'tickets' ? 'active' : ''} onClick={showTickets}>
+                <MessageCircle size={19} />工单支持
+              </button>
+            </div>
+          </aside>
+          <AccountDetailPanel
+            view={view}
+            user={props.user}
+            subscribe={props.subscribe}
+            orders={orders}
+            invite={invite}
+            tickets={tickets}
+            trafficLogs={props.trafficLogs}
+            busy={busy}
+            error={error}
+            onOrders={showOrders}
+            onOverview={showOverview}
+            onSecurity={showSecurity}
+            onInvite={showInvite}
+            onTickets={showTickets}
+            onCreateInvite={createInviteCode}
+            onResetSecurity={props.onResetSecurity}
+            onPayOrder={props.onPayOrder}
+          />
         </div>
       </div>
     </section>
@@ -1097,6 +1112,7 @@ function AccountDetailPanel({
   orders,
   invite,
   tickets,
+  trafficLogs,
   busy,
   error,
   onOrders,
@@ -1114,6 +1130,7 @@ function AccountDetailPanel({
   orders: OrderRecord[] | null;
   invite: InviteInfo | null;
   tickets: TicketRecord[] | null;
+  trafficLogs: TrafficLog[];
   busy: boolean;
   error: string;
   onOrders: () => void;
@@ -1136,27 +1153,62 @@ function AccountDetailPanel({
     }
   }
 
+  const panelCopy: Record<AccountView, { icon: React.ElementType; title: string; subtitle: string }> = {
+    overview: { icon: PackageCheck, title: '订阅概览', subtitle: '查看套餐、流量、到期和本月使用情况' },
+    security: { icon: KeyRound, title: '账号安全', subtitle: '管理订阅链接和账号安全设置' },
+    orders: { icon: ReceiptText, title: '我的订单', subtitle: '查看订单状态，继续处理未支付订单' },
+    tickets: { icon: TicketCheck, title: '工单中心', subtitle: '创建工单并管理你的支持请求' },
+    invite: { icon: CircleDollarSign, title: '邀请与返佣', subtitle: '查看邀请数据，生成邀请码' },
+    wallet: { icon: WalletCards, title: '我的钱包', subtitle: '一览账户余额与邀请佣金' }
+  };
+  const ActiveIcon = panelCopy[view].icon;
+
   return (
     <div className="panel account-detail">
-      <div className="account-tabs">
-        <button className={view === 'overview' ? 'active' : ''} onClick={onOverview}>概览</button>
-        <button className={view === 'security' ? 'active' : ''} onClick={onSecurity}>安全</button>
-        <button className={view === 'orders' ? 'active' : ''} onClick={onOrders}>订单</button>
-        <button className={view === 'tickets' ? 'active' : ''} onClick={onTickets}>工单</button>
-        <button className={view === 'invite' ? 'active' : ''} onClick={onInvite}>邀请</button>
+      <div className="account-detail-head">
+        <div>
+          <ActiveIcon size={24} />
+          <div>
+            <h2>{panelCopy[view].title}</h2>
+            <p>{panelCopy[view].subtitle}</p>
+          </div>
+        </div>
+        {view !== 'overview' && (
+          <button className="icon-button" onClick={onOverview} aria-label="返回概览"><X size={20} /></button>
+        )}
       </div>
 
       {error && <div className="inline-error">{error}</div>}
       {busy && <EmptyState text="正在读取账户数据..." />}
 
       {!busy && view === 'overview' && (
-        <div className="detail-grid">
-          <Metric label="当前套餐" value={subscribe?.plan?.name || (user?.plan_id ? `套餐 ${user.plan_id}` : '暂无套餐')} />
-          <Metric label="到期时间" value={formatDate(subscribe?.expired_at || user?.expired_at)} />
+        <div className="account-overview-grid">
+          <div className="subscription-mini">
+            <strong>{subscribe?.plan?.name || (user?.plan_id ? `套餐 ${user.plan_id}` : '暂无套餐')}</strong>
+            <p>到期时间 {formatDate(subscribe?.expired_at || user?.expired_at)}</p>
+            <div className="usage-meter">
+              <span style={{ width: `${Math.min(1, ((subscribe?.u || 0) + (subscribe?.d || 0)) / Math.max(1, subscribe?.transfer_enable || user?.transfer_enable || 1)) * 100}%` }} />
+            </div>
+          </div>
           <Metric label="已用流量" value={formatBytes((subscribe?.u || 0) + (subscribe?.d || 0))} />
           <Metric label="总流量" value={formatBytes(subscribe?.transfer_enable || user?.transfer_enable)} />
           <Metric label="设备限制" value={subscribe?.device_limit ? `${subscribe.device_limit} 台` : '未限制'} />
           <Metric label="速度限制" value={subscribe?.speed_limit ? `${subscribe.speed_limit} Mbps` : '未限制'} />
+          <Metric label="流量记录" value={`${trafficLogs.length} 条`} />
+        </div>
+      )}
+
+      {!busy && view === 'wallet' && (
+        <div className="wallet-panel">
+          <div>
+            <span>余额</span>
+            <strong>{formatMoney(user?.balance)}</strong>
+          </div>
+          <div>
+            <span>邀请佣金</span>
+            <strong>{formatMoney(user?.commission_balance)}</strong>
+          </div>
+          <p>余额可用于后续套餐购买；邀请佣金会根据后台配置发放。</p>
         </div>
       )}
 
