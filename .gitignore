@@ -34,3 +34,4 @@ compose.split.yaml
 /AGENTS.MD
 /apps/user-portal/dist
 /apps/user-portal/node_modules
+/apps/admin-ops/node_modules
