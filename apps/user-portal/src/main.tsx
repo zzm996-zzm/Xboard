@@ -81,6 +81,7 @@ function App() {
   const [loading, setLoading] = React.useState(true);
   const [busyPlanId, setBusyPlanId] = React.useState<number | null>(null);
   const [checkout, setCheckout] = React.useState<CheckoutState | null>(null);
+  const [accountEntryView, setAccountEntryView] = React.useState<AccountView>('overview');
 
   const isLoggedIn = Boolean(auth?.auth_data);
   const subscriptionUrl = subscribe?.subscribe_url || '';
@@ -95,6 +96,11 @@ function App() {
       window.history.pushState(null, '', nextHash);
     }
   }, []);
+
+  const goAccount = React.useCallback((view: AccountView = 'overview') => {
+    setAccountEntryView(view);
+    go('account');
+  }, [go]);
 
   const refresh = React.useCallback(async (currentAuth = auth) => {
     setLoading(true);
@@ -177,8 +183,50 @@ function App() {
   function handleLogout() {
     saveAuth(null);
     setAuth(null);
-    go('account');
+    goAccount();
     refresh(null);
+  }
+
+  function handleNotifications() {
+    if (!auth?.auth_data) {
+      setMessage('登录后可以查看待支付订单、工单和账户提醒。');
+      goAccount();
+      return;
+    }
+
+    if (stats[0] > 0) {
+      setMessage(`你有 ${stats[0]} 个待支付订单，可以继续完成支付。`);
+      goAccount('orders');
+      return;
+    }
+
+    if (stats[1] > 0) {
+      setMessage(`你有 ${stats[1]} 个未结工单。`);
+      goAccount('tickets');
+      return;
+    }
+
+    setMessage('暂无新的账户提醒。');
+  }
+
+  function openHelp() {
+    if (!auth?.auth_data) {
+      setMessage('请先登录，登录后可以查看工单与账户帮助。');
+      goAccount();
+      return;
+    }
+
+    goAccount('tickets');
+  }
+
+  function openSetup() {
+    if (!auth?.auth_data) {
+      setMessage('请先登录，登录后才能复制你的专属导入配置。');
+      goAccount();
+      return;
+    }
+
+    go('setup');
   }
 
   async function copySubscribe(flag?: string) {
@@ -323,12 +371,12 @@ function App() {
         <nav className="nav">
           <NavButton active={page === 'home'} icon={Home} label="首页" onClick={() => go('home')} />
           <NavButton active={page === 'plans'} icon={PackageCheck} label="套餐" onClick={() => go('plans')} />
-          <NavButton active={page === 'setup'} icon={DownloadCloud} label="导入" onClick={() => go('setup')} />
-          <NavButton active={page === 'account'} icon={UserRound} label="我的" onClick={() => go('account')} />
+          <NavButton active={page === 'setup'} icon={DownloadCloud} label="导入" onClick={openSetup} />
+          <NavButton active={page === 'account'} icon={UserRound} label="我的" onClick={() => goAccount()} />
         </nav>
         <div className="top-actions">
-          <button className="icon-button" aria-label="notifications"><Bell size={19} /></button>
-          <button className="profile-button" onClick={() => go('account')}>
+          <button className="icon-button" aria-label="查看提醒" title="查看提醒" onClick={handleNotifications}><Bell size={19} /></button>
+          <button className="profile-button" onClick={() => goAccount()} title={user ? '我的账户' : '登录'}>
             <span>{user ? initials(user.email) : '登录'}</span>
           </button>
         </div>
@@ -350,8 +398,9 @@ function App() {
             totalBytes={totalBytes}
             onPlan={() => go('plans')}
             onCheckout={() => plans[0] ? startCheckout(plans[0]) : go('plans')}
-            onSetup={() => go(isLoggedIn ? 'setup' : 'account')}
+            onSetup={openSetup}
             onCopySubscribe={() => copySubscribe()}
+            onHelp={openHelp}
           />
         )}
         {page === 'plans' && <PlansPage plans={plans} loading={loading} busyPlanId={busyPlanId} onCheckout={startCheckout} />}
@@ -377,6 +426,7 @@ function App() {
             onLogout={handleLogout}
             onResetSecurity={resetSecurity}
             onPayOrder={continueCheckout}
+            entryView={accountEntryView}
           />
         )}
       </main>
@@ -407,6 +457,7 @@ function HomePage(props: {
   onCheckout: () => void;
   onSetup: () => void;
   onCopySubscribe: () => void;
+  onHelp: () => void;
 }) {
   const planName = props.subscribe?.plan?.name || props.plans[0]?.name || '未选择套餐';
   const remaining = Math.max(0, props.totalBytes - props.usedBytes);
@@ -451,23 +502,25 @@ function HomePage(props: {
 
       <div className="section-grid">
         <div className="panel">
-          <PanelHeader icon={Globe2} title="线路概览" action="实时节点" />
+          <PanelHeader icon={Globe2} title="线路概览" action="导入配置" onAction={props.onSetup} />
           <div className="route-list">
             {(props.servers.length ? props.servers : []).slice(0, 4).map((server, index) => (
               <div className="route-row" key={server.id}>
                 <span className={`dot ${server.is_online ? `dot-${index % 3}` : 'dot-offline'}`} />
                 <div>
                   <strong>{server.name}</strong>
-                  <p>{server.type} / {server.is_online ? 'online' : 'offline'}</p>
+                  <p>{server.is_online ? '可用线路' : '暂不可用'}</p>
                 </div>
-                <ChevronRight size={18} />
+                <span className={`route-status ${server.is_online ? 'online' : 'offline'}`}>
+                  {server.is_online ? '在线' : '离线'}
+                </span>
               </div>
             ))}
             {!props.servers.length && <EmptyState text={props.isLoggedIn ? '当前套餐暂无可用节点。' : '登录后显示你的可用节点。'} />}
           </div>
         </div>
         <div className="panel">
-          <PanelHeader icon={MessageCircle} title="帮助与公告" action="进入帮助" />
+          <PanelHeader icon={MessageCircle} title="帮助与公告" action="工单帮助" onAction={props.onHelp} />
           <div className="notice-card">
             <strong>订阅提醒</strong>
             <p>如果客户端连接异常，请重新复制订阅链接并刷新配置。</p>
@@ -625,14 +678,36 @@ function AccountPage(props: {
   onLogout: () => void;
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
+  entryView: AccountView;
 }) {
-  const [view, setView] = React.useState<AccountView>('overview');
+  const [view, setView] = React.useState<AccountView>(props.entryView);
   const [orders, setOrders] = React.useState<OrderRecord[] | null>(null);
   const [invite, setInvite] = React.useState<InviteInfo | null>(null);
   const [tickets, setTickets] = React.useState<TicketRecord[] | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const token = props.auth?.auth_data || '';
+
+  React.useEffect(() => {
+    setView(props.entryView);
+    setError('');
+
+    if (!token) {
+      return;
+    }
+
+    if (props.entryView === 'orders') {
+      withBusy(async () => setOrders(await api.orders(token)));
+    }
+
+    if (props.entryView === 'tickets') {
+      withBusy(async () => setTickets(await api.tickets(token)));
+    }
+
+    if (props.entryView === 'invite') {
+      withBusy(async () => setInvite(await api.invite(token)));
+    }
+  }, [props.entryView, token]);
 
   if (!props.auth) {
     return (

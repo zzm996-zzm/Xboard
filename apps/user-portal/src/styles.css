@@ -148,6 +148,18 @@ a {
   color: var(--ink);
 }
 
+.icon-button:hover,
+.nav-button:hover,
+.secondary-button:hover,
+.panel-header button:hover,
+.action-line:hover {
+  background: #e8eef7;
+}
+
+.primary-button:hover {
+  background: var(--primary-dark);
+}
+
 .profile-button {
   background: #172036;
   color: white;
@@ -390,6 +402,11 @@ a {
   box-shadow: 0 10px 28px rgba(20, 25, 35, 0.06);
 }
 
+.action-card:hover {
+  border-color: rgba(0, 113, 227, 0.2);
+  background: rgba(245, 249, 255, 0.9);
+}
+
 .action-card svg {
   color: var(--primary);
 }
@@ -474,6 +491,28 @@ a {
 
 .dot-2 {
   background: var(--amber);
+}
+
+.dot-offline {
+  background: #a7b0be;
+}
+
+.route-status {
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.route-status.online {
+  background: #e9fbf4;
+  color: var(--green);
+}
+
+.route-status.offline {
+  background: #edf0f4;
+  color: #667085;
 }
 
 .notice-card {
