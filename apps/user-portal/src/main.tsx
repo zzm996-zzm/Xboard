@@ -8,7 +8,6 @@ import {
   ChevronRight,
   CircleDollarSign,
   Copy,
-  CreditCard,
   DownloadCloud,
   Globe2,
   Home,
@@ -296,6 +295,71 @@ function App() {
     }
   }
 
+  async function startTrafficReset() {
+    if (!auth?.auth_data) {
+      setMessage('请先登录后购买流量重置包。');
+      go('account');
+      return;
+    }
+
+    const activePlanId = subscribe?.plan_id || user?.plan_id;
+    const activePlan = plans.find((plan) => plan.id === activePlanId) || subscribe?.plan || null;
+
+    if (!activePlan) {
+      setMessage('当前账号还没有有效套餐，请先选择套餐。');
+      go('plans');
+      return;
+    }
+
+    if (activePlan.reset_price === null || activePlan.reset_price === undefined) {
+      setMessage('当前套餐暂未配置流量重置包，请续费套餐或联系工单处理。');
+      go('plans');
+      return;
+    }
+
+    setBusyPlanId(activePlan.id);
+    setMessage('');
+    try {
+      const tradeNo = await api.createOrder(auth.auth_data, activePlan.id, 'reset_price');
+      const amount = formatMoney(activePlan.reset_price);
+      let payment: PaymentMethod | undefined;
+      let result: CheckoutResponse | undefined;
+
+      if ((activePlan.reset_price || 0) > 0) {
+        const methods = await api.paymentMethods(auth.auth_data);
+        payment = pickPaymentMethod(methods);
+        if (!payment) {
+          setCheckout({
+            tradeNo,
+            planName: activePlan.name,
+            amount,
+            periodLabel: '流量重置',
+            error: '暂未启用可用支付方式，请稍后再试。'
+          });
+          go('checkout');
+          return;
+        }
+      }
+
+      result = await api.checkoutOrder(auth.auth_data, tradeNo, payment?.id);
+      setCheckout({
+        tradeNo,
+        planName: activePlan.name,
+        amount,
+        periodLabel: '流量重置',
+        payment,
+        result,
+        status: result.type === -1 ? 3 : 0
+      });
+      go('checkout');
+      await refresh(auth);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '创建流量重置订单失败');
+    } finally {
+      setBusyPlanId(null);
+    }
+  }
+
   async function continueCheckout(order: OrderRecord) {
     if (!auth?.auth_data) {
       setMessage('请先登录后继续。');
@@ -397,8 +461,8 @@ function App() {
             usedBytes={usedBytes}
             totalBytes={totalBytes}
             onPlan={() => go('plans')}
-            onCheckout={() => plans[0] ? startCheckout(plans[0]) : go('plans')}
             onSetup={openSetup}
+            onResetTraffic={startTrafficReset}
             onCopySubscribe={() => copySubscribe()}
             onHelp={openHelp}
           />
@@ -454,8 +518,8 @@ function HomePage(props: {
   usedBytes: number;
   totalBytes: number;
   onPlan: () => void;
-  onCheckout: () => void;
   onSetup: () => void;
+  onResetTraffic: () => void;
   onCopySubscribe: () => void;
   onHelp: () => void;
 }) {
@@ -496,8 +560,8 @@ function HomePage(props: {
 
       <div className="quick-grid">
         <ActionCard icon={Zap} title="快速导入" body="Clash Verge、Shadowrocket、Stash 一键复制配置。" onClick={props.onSetup} />
-        <ActionCard icon={CreditCard} title="USDT 支付" body="选择套餐后进入安全收银台。" onClick={props.onCheckout} />
-        <ActionCard icon={RefreshCcw} title="套餐续费" body="按需续费或购买流量重置包。" onClick={props.onPlan} />
+        <ActionCard icon={DownloadCloud} title="使用教程" body="按设备查看导入方式，复制配置后刷新客户端。" onClick={props.onSetup} />
+        <ActionCard icon={RefreshCcw} title="重置流量" body="流量不足时购买重置包，恢复当前套餐流量。" onClick={props.onResetTraffic} />
       </div>
 
       <div className="section-grid">
