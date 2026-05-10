@@ -138,7 +138,31 @@ class ServerService
         Cache::put(CacheKey::get("SERVER_{$nodeType}_ONLINE_USER", $nodeId), count($data), 3600);
         Cache::put(CacheKey::get("SERVER_{$nodeType}_LAST_PUSH_AT", $nodeId), time(), 3600);
 
+        self::markTrafficUsersOnline(array_keys($data));
+
         (new UserService())->trafficFetch($node, $node->type, $data);
+    }
+
+    private static function markTrafficUsersOnline(array $userIds): void
+    {
+        $userIds = array_values(array_unique(array_filter($userIds, 'is_numeric')));
+        if (empty($userIds)) {
+            return;
+        }
+
+        User::query()
+            ->whereIn('id', $userIds)
+            ->update([
+                'last_online_at' => now(),
+            ]);
+
+        User::query()
+            ->whereIn('id', $userIds)
+            ->where(function ($query) {
+                $query->whereNull('online_count')
+                    ->orWhere('online_count', '<', 1);
+            })
+            ->update(['online_count' => 1]);
     }
 
     /**
