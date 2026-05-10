@@ -10,6 +10,7 @@ use App\Jobs\SendEmailJob;
 use App\Models\Plan;
 use App\Models\User;
 use App\Services\AuthService;
+use App\Services\DeviceStateService;
 use App\Services\NodeSyncService;
 use App\Services\UserService;
 use App\Traits\QueryOperators;
@@ -193,11 +194,13 @@ class UserController extends Controller
     // Transform user fields for API response.
     public static function transformUserData(User $user): array
     {
-        $user = $user->toArray();
-        $user['balance'] = $user['balance'] / 100;
-        $user['commission_balance'] = $user['commission_balance'] / 100;
-        $user['subscribe_url'] = Helper::getSubscribeUrl($user['token']);
-        return $user;
+        $deviceCount = app(DeviceStateService::class)->getDisplayDeviceCount($user);
+        $data = $user->toArray();
+        $data['balance'] = $data['balance'] / 100;
+        $data['commission_balance'] = $data['commission_balance'] / 100;
+        $data['online_count'] = $deviceCount;
+        $data['subscribe_url'] = Helper::getSubscribeUrl($data['token']);
+        return $data;
     }
 
     public function getUserInfoById(Request $request)

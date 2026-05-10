@@ -11,6 +11,20 @@ class DeviceStateService
     private const PREFIX = 'user_devices:';
     private const TTL = 300;                     // device state ttl
     private const DB_THROTTLE = 10;             // update db throttle
+    private const RECENT_ACTIVITY_WINDOW = 600;  // fallback window when node only reports traffic
+
+    public static function isRecentlyOnline(mixed $lastOnlineAt): bool
+    {
+        if (!$lastOnlineAt) {
+            return false;
+        }
+
+        $timestamp = $lastOnlineAt instanceof \DateTimeInterface
+            ? $lastOnlineAt->getTimestamp()
+            : (is_numeric($lastOnlineAt) ? (int) $lastOnlineAt : strtotime((string) $lastOnlineAt));
+
+        return $timestamp && $timestamp >= time() - self::RECENT_ACTIVITY_WINDOW;
+    }
 
     /**
      * 移除 Redis key 的前缀
@@ -113,6 +127,30 @@ class DeviceStateService
     public function getDeviceCount(int $userId): int
     {
         $data = Redis::hgetall(self::PREFIX . $userId);
+        return $this->countFreshDevices($data);
+    }
+
+    /**
+     * Return device count for admin display.
+     * Some node builds report traffic without per-device IP lists; in that case a
+     * recent activity timestamp is a better operator signal than showing zero.
+     */
+    public function getDisplayDeviceCount(User $user): int
+    {
+        $count = $this->getDeviceCount($user->id);
+        if ($count > 0) {
+            return $count;
+        }
+
+        if (!$user->last_online_at) {
+            return 0;
+        }
+
+        return self::isRecentlyOnline($user->last_online_at) ? 1 : 0;
+    }
+
+    private function countFreshDevices(array $data): int
+    {
         $now = time();
         $ips = [];
 
@@ -199,7 +237,6 @@ class DeviceStateService
             User::query()
                 ->whereKey($userId)
                 ->update([
-                    'online_count' => $this->getDeviceCount($userId),
                     'last_online_at' => now(),
                 ]);
         // }

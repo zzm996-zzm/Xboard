@@ -18,7 +18,10 @@ class CleanupOnlineStatus extends Command
                 $query->where('last_online_at', '<', now()->subMinutes(10))
                     ->orWhereNull('last_online_at');
             })
-            ->update(['online_count' => 0]);
+            ->update([
+                'online_count' => 0,
+                'last_online_at' => null,
+            ]);
 
         if ($affected > 0) {
             $this->info("Reset online_count for {$affected} stale users.");
