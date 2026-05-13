@@ -11,6 +11,8 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-admin@admin.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
 EXTRA_DOMAINS="${EXTRA_DOMAINS:-}"
+ORIGIN_SSL="${ORIGIN_SSL:-0}"
+STOP_DOCKER_NGINX="${STOP_DOCKER_NGINX:-exchange-nginx-1}"
 COMPOSE_BIN="${COMPOSE_BIN:-docker compose}"
 COMPOSE_FILE="$ROOT_DIR/compose.yaml"
 
@@ -58,21 +60,45 @@ set_env() {
 install_packages() {
   if command -v apt-get >/dev/null 2>&1; then
     "${SUDO[@]}" apt-get update
-    "${SUDO[@]}" apt-get install -y git curl nginx certbot python3-certbot-nginx
+    "${SUDO[@]}" apt-get install -y git curl nginx
+    if [[ "$ORIGIN_SSL" == "1" ]]; then
+      "${SUDO[@]}" apt-get install -y certbot python3-certbot-nginx
+    fi
   elif command -v dnf >/dev/null 2>&1; then
-    "${SUDO[@]}" dnf install -y git curl nginx certbot python3-certbot-nginx || {
+    "${SUDO[@]}" dnf install -y git curl nginx || {
       "${SUDO[@]}" dnf install -y epel-release
-      "${SUDO[@]}" dnf install -y git curl nginx certbot python3-certbot-nginx
+      "${SUDO[@]}" dnf install -y git curl nginx
     }
+    if [[ "$ORIGIN_SSL" == "1" ]]; then
+      "${SUDO[@]}" dnf install -y certbot python3-certbot-nginx
+    fi
   elif command -v yum >/dev/null 2>&1; then
-    "${SUDO[@]}" yum install -y git curl nginx certbot python3-certbot-nginx || {
+    "${SUDO[@]}" yum install -y git curl nginx || {
       "${SUDO[@]}" yum install -y epel-release
-      "${SUDO[@]}" yum install -y git curl nginx certbot python3-certbot-nginx
+      "${SUDO[@]}" yum install -y git curl nginx
     }
+    if [[ "$ORIGIN_SSL" == "1" ]]; then
+      "${SUDO[@]}" yum install -y certbot python3-certbot-nginx
+    fi
   else
     echo "No supported package manager found. Install nginx and certbot manually, then rerun this script." >&2
     exit 1
   fi
+}
+
+stop_conflicting_docker_nginx() {
+  local container
+  if [[ -z "$STOP_DOCKER_NGINX" ]] || ! command -v docker >/dev/null 2>&1; then
+    return
+  fi
+
+  for container in $STOP_DOCKER_NGINX; do
+    if docker ps --format '{{.Names}}' | grep -Fxq "$container"; then
+      echo "==> Disabling and stopping Docker nginx container: $container"
+      docker update --restart=no "$container" >/dev/null
+      docker stop "$container" >/dev/null
+    fi
+  done
 }
 
 install_docker_if_missing() {
@@ -111,7 +137,7 @@ server {
         proxy_set_header Host \$http_host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Proto https;
 
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection \$http_connection;
@@ -181,7 +207,7 @@ deploy_xboard() {
 
 configure_xboard_domain() {
   local tinker_code
-  tinker_code='admin_setting(["app_url" => getenv("APP_URL"), "force_https" => 1, "frontend_theme" => "Northline"]); app(\App\Services\ThemeService::class)->switch("Northline"); echo "Configured app_url: " . admin_setting("app_url") . PHP_EOL;'
+  tinker_code='admin_setting(["app_url" => getenv("APP_URL"), "force_https" => 0, "frontend_theme" => "Northline"]); app(\App\Services\ThemeService::class)->switch("Northline"); echo "Configured app_url: " . admin_setting("app_url") . PHP_EOL;'
 
   echo "==> Applying Xboard domain settings"
   "${COMPOSE[@]}" exec -T \
@@ -211,12 +237,18 @@ echo "==> Xboard domain setup"
 echo "    domain:  $DOMAIN"
 echo "    app url: $APP_URL"
 echo "    root:    $ROOT_DIR"
+echo "    origin ssl: $ORIGIN_SSL"
 
 install_packages
 install_docker_if_missing
+stop_conflicting_docker_nginx
 deploy_xboard
 write_nginx_config
-issue_certificate
+if [[ "$ORIGIN_SSL" == "1" ]]; then
+  issue_certificate
+else
+  echo "==> Skipping origin SSL; Cloudflare should proxy HTTPS and connect to origin over HTTP"
+fi
 configure_xboard_domain
 smoke_test
 
