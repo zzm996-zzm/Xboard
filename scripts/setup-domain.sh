@@ -257,6 +257,11 @@ deploy_xboard() {
     install_docker_if_missing
   fi
 
+  if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 5 "http://127.0.0.1:$PROXY_PORT" >/dev/null; then
+    echo "==> Existing Xboard panel is responding; skipping install/update"
+    return
+  fi
+
   echo "==> Preparing Xboard runtime env"
   if [[ ! -f .env ]]; then
     cp .env.example .env
