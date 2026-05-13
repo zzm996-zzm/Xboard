@@ -12,6 +12,7 @@ ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
 EXTRA_DOMAINS="${EXTRA_DOMAINS:-}"
 ORIGIN_SSL="${ORIGIN_SSL:-0}"
+SELF_SIGNED_ORIGIN_HTTPS="${SELF_SIGNED_ORIGIN_HTTPS:-1}"
 STOP_DOCKER_NGINX="${STOP_DOCKER_NGINX:-exchange-nginx-1}"
 COMPOSE_BIN="${COMPOSE_BIN:-docker compose}"
 COMPOSE_FILE="$ROOT_DIR/compose.yaml"
@@ -60,22 +61,22 @@ set_env() {
 install_packages() {
   if command -v apt-get >/dev/null 2>&1; then
     "${SUDO[@]}" apt-get update
-    "${SUDO[@]}" apt-get install -y git curl nginx
+    "${SUDO[@]}" apt-get install -y git curl nginx openssl
     if [[ "$ORIGIN_SSL" == "1" ]]; then
       "${SUDO[@]}" apt-get install -y certbot python3-certbot-nginx
     fi
   elif command -v dnf >/dev/null 2>&1; then
-    "${SUDO[@]}" dnf install -y git curl nginx || {
+    "${SUDO[@]}" dnf install -y git curl nginx openssl || {
       "${SUDO[@]}" dnf install -y epel-release
-      "${SUDO[@]}" dnf install -y git curl nginx
+      "${SUDO[@]}" dnf install -y git curl nginx openssl
     }
     if [[ "$ORIGIN_SSL" == "1" ]]; then
       "${SUDO[@]}" dnf install -y certbot python3-certbot-nginx
     fi
   elif command -v yum >/dev/null 2>&1; then
-    "${SUDO[@]}" yum install -y git curl nginx || {
+    "${SUDO[@]}" yum install -y git curl nginx openssl || {
       "${SUDO[@]}" yum install -y epel-release
-      "${SUDO[@]}" yum install -y git curl nginx
+      "${SUDO[@]}" yum install -y git curl nginx openssl
     }
     if [[ "$ORIGIN_SSL" == "1" ]]; then
       "${SUDO[@]}" yum install -y certbot python3-certbot-nginx
@@ -84,6 +85,34 @@ install_packages() {
     echo "No supported package manager found. Install nginx and certbot manually, then rerun this script." >&2
     exit 1
   fi
+}
+
+ensure_self_signed_origin_cert() {
+  local ssl_dir="$1"
+  local ssl_cert="$2"
+  local ssl_key="$3"
+  local san="DNS:$DOMAIN"
+  local domain
+
+  if [[ "$ORIGIN_SSL" == "1" ]] || [[ "$SELF_SIGNED_ORIGIN_HTTPS" != "1" ]]; then
+    return
+  fi
+
+  for domain in $EXTRA_DOMAINS; do
+    san="$san,DNS:$domain"
+  done
+
+  "${SUDO[@]}" mkdir -p "$ssl_dir"
+  if [[ -f "$ssl_cert" && -f "$ssl_key" ]]; then
+    return
+  fi
+
+  echo "==> Creating self-signed origin certificate for Cloudflare Full mode"
+  "${SUDO[@]}" openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+    -keyout "$ssl_key" \
+    -out "$ssl_cert" \
+    -subj "/CN=$DOMAIN" \
+    -addext "subjectAltName=$san" >/dev/null 2>&1
 }
 
 stop_conflicting_docker_nginx() {
@@ -113,6 +142,9 @@ install_docker_if_missing() {
 write_nginx_config() {
   local nginx_conf
   local nginx_test=(nginx -t)
+  local ssl_dir
+  local ssl_cert
+  local ssl_key
   local server_names="$DOMAIN"
   if [[ -n "$EXTRA_DOMAINS" ]]; then
     server_names="$server_names $EXTRA_DOMAINS"
@@ -121,15 +153,21 @@ write_nginx_config() {
   if [[ -f /usr/local/nginx/conf/nginx.conf ]] && grep -q 'include vhost/\*.conf' /usr/local/nginx/conf/nginx.conf; then
     "${SUDO[@]}" mkdir -p /usr/local/nginx/conf/vhost
     nginx_conf="/usr/local/nginx/conf/vhost/$DOMAIN.conf"
+    ssl_dir="/usr/local/nginx/conf/ssl"
     if [[ -x /usr/local/nginx/sbin/nginx ]]; then
       nginx_test=(/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf)
     fi
   elif [[ -d /etc/nginx/conf.d && ! -d /etc/nginx/sites-enabled ]]; then
     nginx_conf="/etc/nginx/conf.d/$DOMAIN.conf"
+    ssl_dir="/etc/nginx/ssl"
   else
     "${SUDO[@]}" mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
     nginx_conf="/etc/nginx/sites-available/$DOMAIN"
+    ssl_dir="/etc/nginx/ssl"
   fi
+  ssl_cert="$ssl_dir/$DOMAIN.crt"
+  ssl_key="$ssl_dir/$DOMAIN.key"
+  ensure_self_signed_origin_cert "$ssl_dir" "$ssl_cert" "$ssl_key"
 
   echo "==> Writing nginx reverse proxy: $nginx_conf"
   "${SUDO[@]}" tee "$nginx_conf" >/dev/null <<EOF
@@ -155,6 +193,37 @@ server {
     }
 }
 EOF
+
+  if [[ "$ORIGIN_SSL" != "1" ]] && [[ "$SELF_SIGNED_ORIGIN_HTTPS" == "1" ]]; then
+    "${SUDO[@]}" tee -a "$nginx_conf" >/dev/null <<EOF
+
+server {
+    listen 443 ssl;
+    server_name $server_names;
+
+    ssl_certificate $ssl_cert;
+    ssl_certificate_key $ssl_key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    location ^~ / {
+        proxy_pass http://127.0.0.1:$PROXY_PORT;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection \$http_connection;
+
+        proxy_read_timeout 60s;
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+EOF
+  fi
 
   if [[ "$nginx_conf" == /etc/nginx/sites-available/* ]]; then
     "${SUDO[@]}" ln -sfn "$nginx_conf" "/etc/nginx/sites-enabled/$DOMAIN"
@@ -259,6 +328,7 @@ echo "    domain:  $DOMAIN"
 echo "    app url: $APP_URL"
 echo "    root:    $ROOT_DIR"
 echo "    origin ssl: $ORIGIN_SSL"
+echo "    self-signed origin https: $SELF_SIGNED_ORIGIN_HTTPS"
 
 install_packages
 install_docker_if_missing
