@@ -112,12 +112,19 @@ install_docker_if_missing() {
 
 write_nginx_config() {
   local nginx_conf
+  local nginx_test=(nginx -t)
   local server_names="$DOMAIN"
   if [[ -n "$EXTRA_DOMAINS" ]]; then
     server_names="$server_names $EXTRA_DOMAINS"
   fi
 
-  if [[ -d /etc/nginx/conf.d && ! -d /etc/nginx/sites-enabled ]]; then
+  if [[ -f /usr/local/nginx/conf/nginx.conf ]] && grep -q 'include vhost/\*.conf' /usr/local/nginx/conf/nginx.conf; then
+    "${SUDO[@]}" mkdir -p /usr/local/nginx/conf/vhost
+    nginx_conf="/usr/local/nginx/conf/vhost/$DOMAIN.conf"
+    if [[ -x /usr/local/nginx/sbin/nginx ]]; then
+      nginx_test=(/usr/local/nginx/sbin/nginx -t -c /usr/local/nginx/conf/nginx.conf)
+    fi
+  elif [[ -d /etc/nginx/conf.d && ! -d /etc/nginx/sites-enabled ]]; then
     nginx_conf="/etc/nginx/conf.d/$DOMAIN.conf"
   else
     "${SUDO[@]}" mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
@@ -152,9 +159,11 @@ EOF
   if [[ "$nginx_conf" == /etc/nginx/sites-available/* ]]; then
     "${SUDO[@]}" ln -sfn "$nginx_conf" "/etc/nginx/sites-enabled/$DOMAIN"
   fi
-  "${SUDO[@]}" nginx -t
+  "${SUDO[@]}" "${nginx_test[@]}"
   "${SUDO[@]}" systemctl enable nginx >/dev/null 2>&1 || true
-  "${SUDO[@]}" systemctl reload nginx || "${SUDO[@]}" systemctl restart nginx
+  if ! "${SUDO[@]}" systemctl reload nginx; then
+    "${SUDO[@]}" systemctl restart nginx
+  fi
 }
 
 issue_certificate() {
@@ -219,9 +228,21 @@ configure_xboard_domain() {
 }
 
 smoke_test() {
+  local ready=0
+  local attempt
   echo "==> Smoke testing"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsS --max-time 10 "http://127.0.0.1:$PROXY_PORT" >/dev/null
+    for attempt in {1..30}; do
+      if curl -fsS --max-time 5 "http://127.0.0.1:$PROXY_PORT" >/dev/null; then
+        ready=1
+        break
+      fi
+      sleep 2
+    done
+    if [[ "$ready" != "1" ]]; then
+      echo "Local panel check failed: http://127.0.0.1:$PROXY_PORT" >&2
+      return 1
+    fi
     echo "Local panel OK: http://127.0.0.1:$PROXY_PORT"
     if curl -fsS --max-time 15 "$APP_URL" >/dev/null; then
       echo "Public URL OK: $APP_URL"
