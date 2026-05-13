@@ -59,8 +59,18 @@ install_packages() {
   if command -v apt-get >/dev/null 2>&1; then
     "${SUDO[@]}" apt-get update
     "${SUDO[@]}" apt-get install -y git curl nginx certbot python3-certbot-nginx
+  elif command -v dnf >/dev/null 2>&1; then
+    "${SUDO[@]}" dnf install -y git curl nginx certbot python3-certbot-nginx || {
+      "${SUDO[@]}" dnf install -y epel-release
+      "${SUDO[@]}" dnf install -y git curl nginx certbot python3-certbot-nginx
+    }
+  elif command -v yum >/dev/null 2>&1; then
+    "${SUDO[@]}" yum install -y git curl nginx certbot python3-certbot-nginx || {
+      "${SUDO[@]}" yum install -y epel-release
+      "${SUDO[@]}" yum install -y git curl nginx certbot python3-certbot-nginx
+    }
   else
-    echo "apt-get not found. Install nginx and certbot manually, then rerun this script." >&2
+    echo "No supported package manager found. Install nginx and certbot manually, then rerun this script." >&2
     exit 1
   fi
 }
@@ -75,10 +85,17 @@ install_docker_if_missing() {
 }
 
 write_nginx_config() {
-  local nginx_conf="/etc/nginx/sites-available/$DOMAIN"
+  local nginx_conf
   local server_names="$DOMAIN"
   if [[ -n "$EXTRA_DOMAINS" ]]; then
     server_names="$server_names $EXTRA_DOMAINS"
+  fi
+
+  if [[ -d /etc/nginx/conf.d && ! -d /etc/nginx/sites-enabled ]]; then
+    nginx_conf="/etc/nginx/conf.d/$DOMAIN.conf"
+  else
+    "${SUDO[@]}" mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+    nginx_conf="/etc/nginx/sites-available/$DOMAIN"
   fi
 
   echo "==> Writing nginx reverse proxy: $nginx_conf"
@@ -106,7 +123,9 @@ server {
 }
 EOF
 
-  "${SUDO[@]}" ln -sfn "$nginx_conf" "/etc/nginx/sites-enabled/$DOMAIN"
+  if [[ "$nginx_conf" == /etc/nginx/sites-available/* ]]; then
+    "${SUDO[@]}" ln -sfn "$nginx_conf" "/etc/nginx/sites-enabled/$DOMAIN"
+  fi
   "${SUDO[@]}" nginx -t
   "${SUDO[@]}" systemctl enable nginx >/dev/null 2>&1 || true
   "${SUDO[@]}" systemctl reload nginx || "${SUDO[@]}" systemctl restart nginx
