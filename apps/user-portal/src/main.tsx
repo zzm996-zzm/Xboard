@@ -747,7 +747,7 @@ function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; 
 
   return (
     <section className="page-stack">
-      <PageTitle eyebrow="Choose plan" title="选择适合你的套餐" subtitle="清晰展示权益，按需购买或续费。" />
+      <PageTitle eyebrow="选择套餐" title="选择适合你的套餐" subtitle="清晰展示权益，按需购买或续费。" />
       <div className="plans-grid">
         {plans.map((plan, index) => {
           const availablePeriods = purchasePeriods(plan);
@@ -755,9 +755,9 @@ function PlansPage({ plans, loading, busyPlanId, onCheckout }: { plans: Plan[]; 
           const disabled = !period || plan.sell === false || busyPlanId === plan.id;
           return (
             <article className={`plan-card ${index === 1 ? 'primary' : index === 2 ? 'gold' : 'calm'}`} key={plan.id}>
-              <span className="plan-badge">{plan.tags?.[0] || (plan.sell === false ? '暂不可售' : 'Available')}</span>
+              <span className="plan-badge">{plan.tags?.[0] || (plan.sell === false ? '暂不可售' : '可购买')}</span>
               <h2>{plan.name}</h2>
-              <p className="plan-data">{plan.transfer_enable} GB monthly data</p>
+              <p className="plan-data">每月 {plan.transfer_enable} GB 流量</p>
               <div className="price-row"><strong>{period ? formatMonthlyMoney(plan[period.key], period.months) : '-'}</strong><span>/月</span></div>
               {availablePeriods.length > 1 && (
                 <div className="period-picker" role="group" aria-label={`${plan.name} 购买周期`}>
@@ -1456,7 +1456,7 @@ function LoginPanel({
   return (
     <div className="login-shell">
       <div className="login-copy">
-        <span className="eyebrow light"><BadgeCheck size={17} /> Secure access</span>
+        <span className="eyebrow light"><BadgeCheck size={17} /> 安全访问</span>
         <h1>{mode === 'register' ? '创建账号' : '欢迎回来'}</h1>
         <p>{mode === 'register' ? '创建账号后可购买套餐、导入配置并管理订阅。' : '登录后即可查看订阅、复制配置、续费套餐和管理账号安全。'}</p>
       </div>
