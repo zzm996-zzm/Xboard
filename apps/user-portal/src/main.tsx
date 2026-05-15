@@ -127,6 +127,7 @@ function App() {
   const usedBytes = (subscribe?.u || 0) + (subscribe?.d || 0);
   const totalBytes = subscribe?.transfer_enable || user?.transfer_enable || 0;
   const progress = totalBytes > 0 ? Math.min(1, usedBytes / totalBytes) : 0;
+  const hasSubscription = hasActiveSubscription(subscribe, user);
 
   const go = React.useCallback((nextPage: Page) => {
     setPage(nextPage);
@@ -280,11 +281,18 @@ function App() {
   }
 
   async function copySubscribe(flag = 'clash') {
-    if (!subscriptionUrl) {
+    if (!auth?.auth_data) {
       setMessage('请先登录，登录后才能复制你的专属订阅链接。');
-      go('account');
+      goAccount();
       return;
     }
+
+    if (!hasSubscription || !subscriptionUrl) {
+      setMessage('当前账号还没有有效套餐，请先选择套餐完成开通。');
+      go('plans');
+      return;
+    }
+
     const url = withQuery(subscriptionUrl, 'flag', flag);
     await copyText(url);
     setMessage(`已复制 ${flag} 订阅链接`);
@@ -546,6 +554,7 @@ function App() {
           <HomePage
             loading={loading}
             isLoggedIn={isLoggedIn}
+            hasSubscription={hasSubscription}
             user={user}
             subscribe={subscribe}
             plans={plans}
@@ -569,7 +578,7 @@ function App() {
             onCopySubscribe={() => copySubscribe()}
           />
         )}
-        {page === 'setup' && <SetupPage subscribe={subscribe} onCopyProfile={copySubscribe} />}
+        {page === 'setup' && <SetupPage subscribe={subscribe} hasSubscription={hasSubscription} onCopyProfile={copySubscribe} />}
         {page === 'account' && (
           <AccountPage
             auth={auth}
@@ -625,6 +634,7 @@ function NavButton({ active, icon: Icon, label, onClick }: { active: boolean; ic
 function HomePage(props: {
   loading: boolean;
   isLoggedIn: boolean;
+  hasSubscription: boolean;
   user: UserInfo | null;
   subscribe: SubscribeInfo | null;
   plans: Plan[];
@@ -638,11 +648,19 @@ function HomePage(props: {
   onCopySubscribe: () => void;
   onHelp: () => void;
 }) {
-  const planName = props.subscribe?.plan?.name || props.plans[0]?.name || '未选择套餐';
+  const planName = props.subscribe?.plan?.name || (props.user?.plan_id ? `套餐 ${props.user.plan_id}` : '未开通套餐');
   const remaining = Math.max(0, props.totalBytes - props.usedBytes);
   const onlineNodes = props.servers.filter((server) => server.is_online).length;
-  const resetDate = formatDate(props.subscribe?.next_reset_at);
-  const expireDate = formatDate(props.subscribe?.expired_at);
+  const resetDate = props.hasSubscription ? formatDate(props.subscribe?.next_reset_at) : '购买后显示';
+  const expireDate = props.hasSubscription ? formatDate(props.subscribe?.expired_at || props.user?.expired_at) : '未开通';
+  const title = !props.isLoggedIn ? '网络会员中心' : props.loading ? '正在读取订阅' : props.hasSubscription ? '已购买订阅' : '还未开通套餐';
+  const subtitle = !props.isLoggedIn
+    ? '登录后复制订阅、查看流量、管理套餐。'
+    : props.loading
+      ? `${props.user?.email || '当前账号'} · 正在同步套餐状态`
+      : props.hasSubscription
+      ? `${planName} · ${props.user?.email || '当前账号'}`
+      : `${props.user?.email || '当前账号'} · 请选择套餐完成开通`;
 
   return (
     <section className="page-stack">
@@ -651,17 +669,17 @@ function HomePage(props: {
           <div className="subscription-heading">
             <PackageCheck size={26} />
             <div>
-              <h1>{props.isLoggedIn ? '已购买订阅' : '网络会员中心'}</h1>
-              <p>{props.isLoggedIn ? `${planName} · ${props.user?.email || '当前账号'}` : '登录后复制订阅、查看流量、管理套餐。'}</p>
+              <h1>{title}</h1>
+              <p>{subtitle}</p>
             </div>
           </div>
           <div className="subscription-copy">
-            {props.isLoggedIn ? '专属线路已经准备好，可以复制订阅链接导入客户端。' : '购买套餐后会生成你的专属订阅链接。'}
+            {props.loading ? '正在读取账号套餐状态，请稍候。' : props.hasSubscription ? '专属线路已经准备好，可以复制订阅链接导入客户端。' : '购买套餐后会生成你的专属订阅链接，并在这里显示流量与到期时间。'}
           </div>
           <div className="subscription-stats">
-            <Metric label="套餐总流量" value={props.isLoggedIn ? formatBytes(props.totalBytes) : '登录后显示'} />
-            <Metric label="本月已用" value={props.isLoggedIn ? formatBytes(props.usedBytes) : '-'} />
-            <Metric label="剩余流量" value={props.isLoggedIn ? formatBytes(remaining) : '-'} />
+            <Metric label="套餐总流量" value={props.loading ? '读取中' : props.hasSubscription ? formatBytes(props.totalBytes) : props.isLoggedIn ? '未开通' : '登录后显示'} />
+            <Metric label="本月已用" value={props.hasSubscription ? formatBytes(props.usedBytes) : '-'} />
+            <Metric label="剩余流量" value={props.hasSubscription ? formatBytes(remaining) : '-'} />
           </div>
           <div className="usage-meter">
             <span style={{ width: `${props.progress * 100}%` }} />
@@ -691,8 +709,9 @@ function HomePage(props: {
             <strong>支持客户端一键导入</strong>
             <p>Clash Verge、Shadowrocket、Stash 等客户端均可使用订阅链接。</p>
           </div>
-          <button className="primary-button wide" onClick={props.onCopySubscribe} disabled={!props.isLoggedIn}>
-            <Copy size={18} />复制订阅链接
+          <button className="primary-button wide" onClick={props.hasSubscription ? props.onCopySubscribe : props.onPlan} disabled={!props.isLoggedIn || props.loading}>
+            {props.hasSubscription ? <Copy size={18} /> : <ReceiptText size={18} />}
+            {props.hasSubscription ? '复制订阅链接' : '选择套餐'}
           </button>
           <div className="import-links">
             <button onClick={props.onSetup}><MessageCircle size={17} />不会用？查看教程<ArrowRight size={16} /></button>
@@ -871,7 +890,7 @@ function CheckoutPage({
   );
 }
 
-function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | null; onCopyProfile: (flag?: string) => void }) {
+function SetupPage({ subscribe, hasSubscription, onCopyProfile }: { subscribe: SubscribeInfo | null; hasSubscription: boolean; onCopyProfile: (flag?: string) => void }) {
   const [selectedClient, setSelectedClient] = React.useState(setupClients[0].flag);
   const guideRef = React.useRef<HTMLDivElement | null>(null);
   const activeClient = setupClients.find((client) => client.flag === selectedClient) || setupClients[0];
@@ -895,13 +914,13 @@ function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | nu
             <button className="secondary-button wide" onClick={() => openGuide(flag)}>
               查看教程<ChevronRight size={18} />
             </button>
-            <button className="secondary-button wide" disabled={!subscribe?.subscribe_url} onClick={() => onCopyProfile(flag)}>
+            <button className="secondary-button wide" disabled={!hasSubscription || !subscribe?.subscribe_url} onClick={() => onCopyProfile(flag)}>
               复制配置链接<DownloadCloud size={18} />
             </button>
           </article>
         ))}
       </div>
-      {!subscribe?.subscribe_url && <EmptyState text="请先登录并拥有有效套餐，才会生成专属订阅链接。" />}
+      {(!hasSubscription || !subscribe?.subscribe_url) && <EmptyState text="当前账号还没有有效套餐，请先在套餐页完成开通。" />}
       <div className="panel guide-panel" ref={guideRef}>
         <PanelHeader icon={activeClient.icon} title={`${activeClient.name} 教程`} action={activeClient.platform} />
         <div className="guide-layout">
@@ -911,7 +930,7 @@ function SetupPage({ subscribe, onCopyProfile }: { subscribe: SubscribeInfo | nu
             <a className="primary-button wide" href={activeClient.downloadUrl} target="_blank" rel="noreferrer">
               打开下载页面<ExternalLink size={18} />
             </a>
-            <button className="secondary-button wide" disabled={!subscribe?.subscribe_url} onClick={() => onCopyProfile(activeClient.flag)}>
+            <button className="secondary-button wide" disabled={!hasSubscription || !subscribe?.subscribe_url} onClick={() => onCopyProfile(activeClient.flag)}>
               复制配置链接<Copy size={18} />
             </button>
           </div>
@@ -1200,6 +1219,11 @@ function AccountDetailPanel({
     wallet: { icon: WalletCards, title: '我的钱包', subtitle: '一览账户余额与邀请佣金' }
   };
   const ActiveIcon = panelCopy[view].icon;
+  const hasSubscription = hasActiveSubscription(subscribe, user);
+  const subscriptionName = hasSubscription
+    ? subscribe?.plan?.name || (user?.plan_id ? `套餐 ${user.plan_id}` : '已开通套餐')
+    : '暂无套餐';
+  const subscriptionExpireText = hasSubscription ? formatDate(subscribe?.expired_at || user?.expired_at) : '未开通';
 
   return (
     <div className="panel account-detail">
@@ -1245,8 +1269,8 @@ function AccountDetailPanel({
       {!busy && view === 'overview' && (
         <div className="account-overview-grid">
           <div className="subscription-mini">
-            <strong>{subscribe?.plan?.name || (user?.plan_id ? `套餐 ${user.plan_id}` : '暂无套餐')}</strong>
-            <p>到期时间 {formatDate(subscribe?.expired_at || user?.expired_at)}</p>
+            <strong>{subscriptionName}</strong>
+            <p>到期时间 {subscriptionExpireText}</p>
             <div className="usage-meter">
               <span style={{ width: `${Math.min(1, ((subscribe?.u || 0) + (subscribe?.d || 0)) / Math.max(1, subscribe?.transfer_enable || user?.transfer_enable || 1)) * 100}%` }} />
             </div>
@@ -1711,6 +1735,15 @@ function formatBytes(bytes?: number | null) {
 function formatDate(timestamp?: number | null) {
   if (!timestamp) return '长期有效';
   return new Date(timestamp * 1000).toISOString().slice(0, 10);
+}
+
+function hasActiveSubscription(subscribe?: SubscribeInfo | null, user?: UserInfo | null) {
+  const planId = subscribe?.plan_id || user?.plan_id;
+  const transferEnable = subscribe?.transfer_enable || user?.transfer_enable || 0;
+  const expiredAt = subscribe?.expired_at ?? user?.expired_at;
+  const isNotExpired = expiredAt === null || expiredAt === undefined || expiredAt > Math.floor(Date.now() / 1000);
+
+  return Boolean(planId && transferEnable > 0 && isNotExpired);
 }
 
 function initials(email: string) {
