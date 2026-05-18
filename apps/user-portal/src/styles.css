@@ -949,6 +949,19 @@ a {
   object-fit: contain;
 }
 
+.qr-fallback {
+  display: grid;
+  gap: 12px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.qr-fallback svg {
+  color: var(--primary);
+}
+
 .payment-panel h2 {
   margin: 8px 0 0;
   font-size: 30px;

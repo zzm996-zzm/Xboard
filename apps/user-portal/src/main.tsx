@@ -823,16 +823,29 @@ function CheckoutPage({
 }) {
   const paymentInfo = paymentData(checkout?.result?.data);
   const paymentUrl = paymentInfo.qrcode || paymentInfo.url;
+  const paymentExternalUrl = isWebUrl(paymentInfo.qrcodeUrl)
+    ? paymentInfo.qrcodeUrl
+    : isWebUrl(paymentUrl)
+      ? paymentUrl
+      : isWebUrl(paymentInfo.url)
+        ? paymentInfo.url
+        : '';
+  const paymentCopyValue = paymentInfo.qrcodeUrl || paymentUrl;
   const isQr = checkout?.result?.type === 0 && paymentUrl;
   const isRedirect = checkout?.result?.type === 1 && paymentUrl;
   const isFree = checkout?.result?.type === -1;
   const isComplete = isFree || checkout?.status === 3;
   const isProcessing = checkout?.status === 1;
   const isTrafficReset = checkout?.period === 'reset_price';
+  const [qrFailed, setQrFailed] = React.useState(false);
   const paymentAddress = paymentInfo.address;
   const paymentAmount = paymentInfo.amount && paymentInfo.amountType
     ? `${paymentInfo.amount} ${paymentInfo.amountType.toUpperCase()}`
     : checkout?.amount || '-';
+
+  React.useEffect(() => {
+    setQrFailed(false);
+  }, [paymentUrl]);
 
   return (
     <section className="page-stack checkout-layout">
@@ -844,7 +857,16 @@ function CheckoutPage({
       <div className="checkout-grid">
         <div className="panel payment-panel">
           <div className="qr-box">
-            {isComplete ? <Check size={108} /> : isQr ? <img src={paymentUrl} alt="payment qr code" /> : <QrCode size={108} />}
+            {isComplete ? (
+              <Check size={108} />
+            ) : isQr && !qrFailed ? (
+              <img src={paymentUrl} alt="支付二维码" onError={() => setQrFailed(true)} />
+            ) : (
+              <div className="qr-fallback">
+                <QrCode size={74} />
+                <span>{isQr ? '二维码图片暂时无法显示' : '等待支付二维码'}</span>
+              </div>
+            )}
           </div>
           <div>
             <span className="muted">{paymentInfo.amountType ? '应转金额' : '应付金额'}</span>
@@ -870,8 +892,13 @@ function CheckoutPage({
             </div>
           )}
           {isRedirect && <a className="primary-button wide" href={paymentUrl} target="_blank" rel="noreferrer">打开支付页面<ArrowRight size={18} /></a>}
+          {isQr && qrFailed && paymentExternalUrl && (
+            <a className="secondary-button wide" href={paymentExternalUrl} target="_blank" rel="noreferrer">
+              打开二维码<ExternalLink size={18} />
+            </a>
+          )}
           {isQr && (
-            <CopyButton className="primary-button wide" text={paymentUrl} successText="已复制二维码链接">
+            <CopyButton className="primary-button wide" text={paymentCopyValue} successText="已复制二维码链接">
               <Copy size={18} />复制二维码链接
             </CopyButton>
           )}
@@ -1773,17 +1800,18 @@ function pickPaymentMethod(methods: PaymentMethod[]) {
 
 function paymentData(data: unknown) {
   if (typeof data === 'string') {
-    return { url: data, qrcode: data, address: '', network: '', amount: '', amountType: '' };
+    return { url: data, qrcode: data, qrcodeUrl: data, address: '', network: '', amount: '', amountType: '' };
   }
 
   if (!data || typeof data !== 'object') {
-    return { url: '', qrcode: '', address: '', network: '', amount: '', amountType: '' };
+    return { url: '', qrcode: '', qrcodeUrl: '', address: '', network: '', amount: '', amountType: '' };
   }
 
   const record = data as Record<string, unknown>;
   return {
     url: stringValue(record.url || record.pay_url || record.payment_url || record.qrcode),
     qrcode: stringValue(record.qrcode || record.qr_code || record.url),
+    qrcodeUrl: stringValue(record.qrcode_url || record.qr_code_url || record.url || record.qrcode),
     address: stringValue(record.address || record.to_address),
     network: stringValue(record.network),
     amount: stringValue(record.amount || record.actual_amount),
@@ -1793,6 +1821,10 @@ function paymentData(data: unknown) {
 
 function stringValue(value: unknown) {
   return typeof value === 'string' ? value : '';
+}
+
+function isWebUrl(value: string) {
+  return /^https?:\/\//i.test(value);
 }
 
 function withQuery(url: string, key: string, value: string) {

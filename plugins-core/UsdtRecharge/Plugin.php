@@ -126,16 +126,18 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         }
 
         $data = $result['data'];
-        $paymentData = $data['qrcode'] ?? $data['address'] ?? null;
-        if (!$paymentData) {
+        $rawQrcode = trim((string) ($data['qrcode'] ?? ''));
+        $address = trim((string) ($data['address'] ?? ''));
+        if (!$rawQrcode && !$address) {
             throw new ApiException(__('Payment gateway request failed'));
         }
 
         return [
             'type' => 0,
             'data' => [
-                'qrcode' => (string) $paymentData,
-                'address' => (string) ($data['address'] ?? ''),
+                'qrcode' => $rawQrcode ? $this->inlineQrcodeImage($rawQrcode) : '',
+                'qrcode_url' => $rawQrcode,
+                'address' => $address,
                 'network' => (string) ($data['network'] ?? $this->getConfig('network', 'trc20')),
                 'amount_type' => (string) ($data['amount_type'] ?? $this->getConfig('amount_type', 'USDT')),
                 'amount' => (string) ($data['amount'] ?? $params['amount']),
@@ -229,6 +231,42 @@ class Plugin extends AbstractPlugin implements PaymentInterface
         $actualAmount = (float) $params['actual_amount'];
 
         return $actualAmount + 0.00000001 >= $expectedAmount;
+    }
+
+    private function inlineQrcodeImage(string $qrcode): string
+    {
+        if (str_starts_with($qrcode, 'data:image/')) {
+            return $qrcode;
+        }
+
+        if (!filter_var($qrcode, FILTER_VALIDATE_URL)) {
+            return $qrcode;
+        }
+
+        $scheme = strtolower((string) parse_url($qrcode, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return $qrcode;
+        }
+
+        try {
+            $response = Http::accept('image/*')
+                ->timeout(10)
+                ->get($qrcode);
+        } catch (\Throwable) {
+            return $qrcode;
+        }
+
+        if (!$response->successful()) {
+            return $qrcode;
+        }
+
+        $contentType = strtolower(trim(explode(';', $response->header('Content-Type', ''))[0]));
+        $body = $response->body();
+        if (!str_starts_with($contentType, 'image/') || strlen($body) > 1024 * 1024) {
+            return $qrcode;
+        }
+
+        return sprintf('data:%s;base64,%s', $contentType, base64_encode($body));
     }
 
     private function verifySign(array $params): bool
