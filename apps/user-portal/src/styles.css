@@ -637,7 +637,7 @@ a {
 }
 
 .support-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .action-card {
@@ -931,6 +931,101 @@ a {
   gap: 22px;
 }
 
+.redeem-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(320px, 1.08fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.redeem-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.redeem-panel h2 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: 0;
+}
+
+.redeem-panel p,
+.redeem-side-panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.redeem-card-mark {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(0, 113, 227, 0.15), rgba(50, 173, 230, 0.12)),
+    #eef6ff;
+  color: var(--primary);
+}
+
+.redeem-code-field {
+  display: grid;
+  gap: 8px;
+  color: #344054;
+  font-weight: 800;
+}
+
+.redeem-code-field input {
+  width: 100%;
+  height: 58px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0 16px;
+  background: #f8fbff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: 0;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.redeem-code-field input:focus {
+  border-color: rgba(18, 103, 255, 0.52);
+  box-shadow: 0 0 0 4px rgba(18, 103, 255, 0.1);
+}
+
+.redeem-success {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 16px;
+  background: #e9fbf4;
+  color: var(--green);
+}
+
+.redeem-success > svg {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 50%;
+  background: rgba(24, 139, 93, 0.12);
+}
+
+.redeem-success p {
+  margin-top: 4px;
+  color: #326653;
+}
+
+.redeem-side-panel {
+  display: grid;
+  gap: 16px;
+}
+
 .qr-box {
   display: grid;
   aspect-ratio: 1;
@@ -1207,7 +1302,7 @@ a {
 
 .account-shortcuts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
@@ -1655,7 +1750,7 @@ a {
   .nav {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     overflow: hidden;
     padding-bottom: 2px;
   }
@@ -1674,6 +1769,7 @@ a {
   .account-layout,
   .plans-grid,
   .checkout-grid,
+  .redeem-grid,
   .client-grid,
   .guide-layout,
   .usage-stats,

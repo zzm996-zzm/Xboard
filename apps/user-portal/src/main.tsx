@@ -10,6 +10,7 @@ import {
   Copy,
   DownloadCloud,
   ExternalLink,
+  Gift,
   Globe2,
   Home,
   KeyRound,
@@ -30,10 +31,10 @@ import {
   Wifi,
   X
 } from 'lucide-react';
-import { api, type AuthData, type CheckoutResponse, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
+import { api, type AuthData, type CheckoutResponse, type GiftCardRedeemResult, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
 import './styles.css';
 
-type Page = 'home' | 'plans' | 'checkout' | 'setup' | 'account';
+type Page = 'home' | 'plans' | 'redeem' | 'checkout' | 'setup' | 'account';
 
 type CheckoutState = {
   tradeNo?: string;
@@ -47,7 +48,7 @@ type CheckoutState = {
   error?: string;
 };
 
-type AccountView = 'overview' | 'security' | 'orders' | 'tickets' | 'invite' | 'wallet';
+type AccountView = 'overview' | 'security' | 'orders' | 'tickets' | 'invite' | 'wallet' | 'redeem';
 
 type AccountNotice = {
   title: string;
@@ -212,7 +213,7 @@ function App() {
     const nextAuth = await api.login(email, password);
     saveAuth(nextAuth);
     setAuth(nextAuth);
-    go('home');
+    go(page === 'redeem' ? 'redeem' : 'home');
     await refresh(nextAuth);
   }
 
@@ -220,7 +221,7 @@ function App() {
     const nextAuth = await api.register(email, password);
     saveAuth(nextAuth);
     setAuth(nextAuth);
-    go('home');
+    go(page === 'redeem' ? 'redeem' : 'home');
     await refresh(nextAuth);
   }
 
@@ -516,6 +517,17 @@ function App() {
     }
   }
 
+  async function redeemGiftCard(code: string): Promise<GiftCardRedeemResult> {
+    if (!auth?.auth_data) {
+      throw new Error('请先登录后再兑换礼品卡。');
+    }
+
+    const result = await api.redeemGiftCard(auth.auth_data, code);
+    await refresh(auth);
+    setMessage(result.message || '兑换成功，套餐状态已更新。');
+    return result;
+  }
+
   return (
     <div className="shell">
       <header className="topbar">
@@ -526,6 +538,7 @@ function App() {
         <nav className="nav">
           <NavButton active={page === 'home'} icon={Home} label="首页" onClick={() => go('home')} />
           <NavButton active={page === 'plans'} icon={PackageCheck} label="套餐" onClick={() => go('plans')} />
+          <NavButton active={page === 'redeem'} icon={Gift} label="兑换" onClick={() => go('redeem')} />
           <NavButton active={page === 'setup'} icon={DownloadCloud} label="导入" onClick={openSetup} />
           <NavButton active={page === 'account'} icon={UserRound} label="我的" onClick={() => goAccount()} />
         </nav>
@@ -565,11 +578,22 @@ function App() {
             onPlan={() => go('plans')}
             onSetup={openSetup}
             onResetTraffic={startTrafficReset}
+            onRedeem={() => go('redeem')}
             onCopySubscribe={() => copySubscribe()}
             onHelp={openHelp}
           />
         )}
         {page === 'plans' && <PlansPage plans={plans} loading={loading} busyPlanId={busyPlanId} onCheckout={startCheckout} />}
+        {page === 'redeem' && (
+          isLoggedIn ? (
+            <GiftCardRedeemPage onRedeem={redeemGiftCard} onSetup={() => go('setup')} />
+          ) : (
+            <section className="page-stack">
+              <PageTitle eyebrow="Gift Card" title="兑换礼品卡" subtitle="登录后输入兑换码，套餐会自动开通到当前账号。" />
+              <LoginPanel onLogin={handleLogin} onRegister={handleRegister} onConnectionTest={handleConnectionTest} />
+            </section>
+          )
+        )}
         {page === 'checkout' && (
           <CheckoutPage
             checkout={checkout}
@@ -592,6 +616,7 @@ function App() {
             onLogout={handleLogout}
             onResetSecurity={resetSecurity}
             onPayOrder={continueCheckout}
+            onRedeemGiftCard={redeemGiftCard}
             entryView={accountEntryView}
           />
         )}
@@ -645,6 +670,7 @@ function HomePage(props: {
   onPlan: () => void;
   onSetup: () => void;
   onResetTraffic: () => void;
+  onRedeem: () => void;
   onCopySubscribe: () => void;
   onHelp: () => void;
 }) {
@@ -722,6 +748,7 @@ function HomePage(props: {
       </div>
 
       <div className="quick-grid support-grid">
+        <ActionCard icon={Gift} title="兑换礼品卡" body="输入管理员发放的兑换码，套餐会自动开通到当前账号。" onClick={props.onRedeem} />
         <ActionCard icon={RefreshCcw} title="重置流量" body="流量不足时购买重置包，恢复当前套餐流量。" onClick={props.onResetTraffic} />
         <ActionCard icon={TicketCheck} title="工单帮助" body="连接异常、订单问题、套餐咨询都可以提交工单。" onClick={props.onHelp} />
       </div>
@@ -979,6 +1006,91 @@ function SetupPage({ subscribe, hasSubscription, onCopyProfile }: { subscribe: S
   );
 }
 
+function GiftCardRedeemPage({ onRedeem, onSetup }: { onRedeem: (code: string) => Promise<GiftCardRedeemResult>; onSetup: () => void }) {
+  return (
+    <section className="page-stack redeem-layout">
+      <PageTitle eyebrow="Gift Card" title="兑换礼品卡" subtitle="输入管理员发放的兑换码，套餐会自动绑定到当前账号。" />
+      <div className="redeem-grid">
+        <GiftCardRedeemPanel onRedeem={onRedeem} />
+        <div className="panel redeem-side-panel">
+          <PanelHeader icon={PackageCheck} title="兑换后怎么用" action="自动生效" />
+          <div className="timeline">
+            <Step done title="输入兑换码" body="兑换码只需要使用一次，请确认登录的是要开通套餐的账号。" />
+            <Step done title="套餐开通" body="兑换成功后订阅状态会自动刷新，不需要再创建支付订单。" />
+            <Step title="导入客户端" body="套餐生效后复制订阅链接，导入到你的常用客户端。" />
+          </div>
+          <button className="secondary-button wide" onClick={onSetup}>查看导入教程<ArrowRight size={18} /></button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GiftCardRedeemPanel({ onRedeem, framed = true }: { onRedeem: (code: string) => Promise<GiftCardRedeemResult>; framed?: boolean }) {
+  const [code, setCode] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [success, setSuccess] = React.useState<GiftCardRedeemResult | null>(null);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedCode = code.trim().replace(/\s+/g, '').toUpperCase();
+    if (!normalizedCode) {
+      setError('请输入礼品卡兑换码。');
+      return;
+    }
+
+    setBusy(true);
+    setError('');
+    setSuccess(null);
+    try {
+      const result = await onRedeem(normalizedCode);
+      setCode('');
+      setSuccess(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '兑换失败，请稍后再试。');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className={`${framed ? 'panel ' : ''}redeem-panel`} onSubmit={submit}>
+      <div className="redeem-card-mark"><Gift size={34} /></div>
+      <div>
+        <h2>礼品卡兑换</h2>
+        <p>把收到的兑换码输入到这里，成功后会直接开通或更新当前账号的套餐。</p>
+      </div>
+      <label className="redeem-code-field">
+        兑换码
+        <input
+          value={code}
+          onChange={(event) => setCode(event.target.value)}
+          placeholder="例如 NORTHLINE2026"
+          autoCapitalize="characters"
+          autoComplete="one-time-code"
+          minLength={8}
+          maxLength={32}
+          required
+        />
+      </label>
+      {error && <div className="inline-error">{error}</div>}
+      {success && (
+        <div className="redeem-success">
+          <Check size={18} />
+          <div>
+            <strong>{success.message || '兑换成功'}</strong>
+            <p>{success.template_name ? `${success.template_name} 已应用到当前账号。` : '套餐状态已更新，可以复制订阅链接开始使用。'}</p>
+          </div>
+        </div>
+      )}
+      <button className="primary-button wide" disabled={busy}>
+        {busy ? '兑换中...' : '立即兑换'}<ArrowRight size={18} />
+      </button>
+    </form>
+  );
+}
+
 function AccountPage(props: {
   auth: AuthData | null;
   user: UserInfo | null;
@@ -991,6 +1103,7 @@ function AccountPage(props: {
   onLogout: () => void;
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
+  onRedeemGiftCard: (code: string) => Promise<GiftCardRedeemResult>;
   entryView: AccountView;
 }) {
   const [view, setView] = React.useState<AccountView>(props.entryView);
@@ -1062,6 +1175,11 @@ function AccountPage(props: {
     setError('');
   }
 
+  function showRedeem() {
+    setView('redeem');
+    setError('');
+  }
+
   function showOrders() {
     setView('orders');
     withBusy(async () => setOrders(await api.orders(token)));
@@ -1117,6 +1235,10 @@ function AccountPage(props: {
                 <span><WalletCards size={22} /></span>
                 钱包
               </button>
+              <button className={view === 'redeem' ? 'active' : ''} onClick={showRedeem}>
+                <span><Gift size={22} /></span>
+                兑换
+              </button>
             </div>
             <div className="account-menu">
               <button className={view === 'overview' ? 'active' : ''} onClick={showOverview}>
@@ -1127,6 +1249,9 @@ function AccountPage(props: {
               </button>
               <button className={view === 'security' ? 'active' : ''} onClick={showSecurity}>
                 <KeyRound size={19} />修改账号安全
+              </button>
+              <button className={view === 'redeem' ? 'active' : ''} onClick={showRedeem}>
+                <Gift size={19} />礼品卡兑换
               </button>
               <div className="account-menu-title">增长与协议</div>
               <button className={view === 'invite' ? 'active' : ''} onClick={showInvite}>
@@ -1156,6 +1281,7 @@ function AccountPage(props: {
             onCreateTicket={createTicket}
             onResetSecurity={props.onResetSecurity}
             onPayOrder={props.onPayOrder}
+            onRedeemGiftCard={props.onRedeemGiftCard}
           />
         </div>
       </div>
@@ -1181,7 +1307,8 @@ function AccountDetailPanel({
   onCreateInvite,
   onCreateTicket,
   onResetSecurity,
-  onPayOrder
+  onPayOrder,
+  onRedeemGiftCard
 }: {
   view: AccountView;
   user: UserInfo | null;
@@ -1201,6 +1328,7 @@ function AccountDetailPanel({
   onCreateTicket: (subject: string, message: string, level: number) => Promise<void>;
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
+  onRedeemGiftCard: (code: string) => Promise<GiftCardRedeemResult>;
 }) {
   const [payingTradeNo, setPayingTradeNo] = React.useState<string | null>(null);
   const [ticketSubject, setTicketSubject] = React.useState('');
@@ -1243,7 +1371,8 @@ function AccountDetailPanel({
     orders: { icon: ReceiptText, title: '我的订单', subtitle: '查看订单状态，继续处理未支付订单' },
     tickets: { icon: TicketCheck, title: '工单中心', subtitle: '创建工单并管理你的支持请求' },
     invite: { icon: CircleDollarSign, title: '邀请与返佣', subtitle: '查看邀请数据，生成邀请码' },
-    wallet: { icon: WalletCards, title: '我的钱包', subtitle: '一览账户余额与邀请佣金' }
+    wallet: { icon: WalletCards, title: '我的钱包', subtitle: '一览账户余额与邀请佣金' },
+    redeem: { icon: Gift, title: '礼品卡兑换', subtitle: '输入管理员发放的兑换码，自动开通套餐' }
   };
   const ActiveIcon = panelCopy[view].icon;
   const hasSubscription = hasActiveSubscription(subscribe, user);
@@ -1322,6 +1451,10 @@ function AccountDetailPanel({
           </div>
           <p>余额可用于后续套餐购买；邀请佣金会根据后台配置发放。</p>
         </div>
+      )}
+
+      {!busy && view === 'redeem' && (
+        <GiftCardRedeemPanel onRedeem={onRedeemGiftCard} framed={false} />
       )}
 
       {!busy && view === 'security' && (
@@ -1673,6 +1806,10 @@ function pageFromHash(): Page {
     case 'plans':
     case 'shop':
       return 'plans';
+    case 'redeem':
+    case 'gift-card':
+    case 'giftcard':
+      return 'redeem';
     case 'checkout':
     case 'order':
       return 'checkout';
@@ -1695,6 +1832,7 @@ function hashForPage(page: Page) {
   const map: Record<Page, string> = {
     home: '#/home',
     plans: '#/plans',
+    redeem: '#/redeem',
     checkout: '#/checkout',
     setup: '#/setup',
     account: '#/account'
