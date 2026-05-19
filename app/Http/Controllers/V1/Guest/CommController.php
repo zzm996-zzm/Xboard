@@ -28,6 +28,8 @@ class CommController extends Controller
             'app_description' => admin_setting('app_description'),
             'app_url' => admin_setting('app_url'),
             'logo' => admin_setting('logo'),
+            'is_telegram' => (int) admin_setting('telegram_bot_enable', 0),
+            'telegram_discuss_link' => admin_setting('telegram_discuss_link'),
             // 保持向后兼容
             'is_recaptcha' => (int) admin_setting('captcha_enable', 0) ? 1 : 0,
         ];

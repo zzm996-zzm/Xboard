@@ -130,6 +130,11 @@ export type GiftCardRedeemResult = {
   template_name?: string;
 };
 
+export type PortalConfig = {
+  is_telegram?: number | boolean;
+  telegram_discuss_link?: string | null;
+};
+
 const API_BASE = (import.meta.env.VITE_XBOARD_API_BASE || '/api/v1').replace(/\/$/, '');
 
 async function request<T>(
@@ -223,6 +228,14 @@ export const api = {
 
   guestPlans() {
     return request<unknown>('/guest/plan/fetch').then(asList<Plan>);
+  },
+
+  guestConfig() {
+    return request<PortalConfig>('/guest/comm/config');
+  },
+
+  userConfig(token: string) {
+    return request<PortalConfig>('/user/comm/config', { token });
   },
 
   userInfo(token: string) {

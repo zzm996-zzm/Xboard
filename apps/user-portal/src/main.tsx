@@ -31,7 +31,7 @@ import {
   Wifi,
   X
 } from 'lucide-react';
-import { api, type AuthData, type CheckoutResponse, type GiftCardRedeemResult, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
+import { api, type AuthData, type CheckoutResponse, type GiftCardRedeemResult, type InviteInfo, type OrderRecord, type PaymentMethod, type PeriodKey, type Plan, type PortalConfig, type ServerNode, type SubscribeInfo, type TicketRecord, type TrafficLog, type UserInfo } from './api';
 import './styles.css';
 
 type Page = 'home' | 'plans' | 'redeem' | 'checkout' | 'setup' | 'account';
@@ -114,6 +114,7 @@ function App() {
   const [plans, setPlans] = React.useState<Plan[]>([]);
   const [servers, setServers] = React.useState<ServerNode[]>([]);
   const [trafficLogs, setTrafficLogs] = React.useState<TrafficLog[]>([]);
+  const [portalConfig, setPortalConfig] = React.useState<PortalConfig | null>(null);
   const [stats, setStats] = React.useState<[number, number, number]>([0, 0, 0]);
   const [message, setMessage] = React.useState<string>('');
   const [accountNotice, setAccountNotice] = React.useState<AccountNotice | null>(null);
@@ -129,6 +130,7 @@ function App() {
   const totalBytes = subscribe?.transfer_enable || user?.transfer_enable || 0;
   const progress = totalBytes > 0 ? Math.min(1, usedBytes / totalBytes) : 0;
   const hasSubscription = hasActiveSubscription(subscribe, user);
+  const telegramLink = stringValue(portalConfig?.telegram_discuss_link);
 
   const go = React.useCallback((nextPage: Page) => {
     setPage(nextPage);
@@ -148,8 +150,12 @@ function App() {
     setMessage('');
     try {
       if (!currentAuth?.auth_data) {
-        const guestPlans = await api.guestPlans();
+        const [guestPlans, config] = await Promise.all([
+          api.guestPlans(),
+          api.guestConfig().catch(() => null)
+        ]);
         setPlans(guestPlans);
+        setPortalConfig(config);
         setUser(null);
         setSubscribe(null);
         setServers([]);
@@ -158,13 +164,14 @@ function App() {
         return;
       }
 
-      const [info, sub, userPlans, nodeList, stat, logs] = await Promise.all([
+      const [info, sub, userPlans, nodeList, stat, logs, config] = await Promise.all([
         api.userInfo(currentAuth.auth_data),
         api.subscribe(currentAuth.auth_data),
         api.userPlans(currentAuth.auth_data),
         api.servers(currentAuth.auth_data),
         api.stats(currentAuth.auth_data),
-        api.trafficLogs(currentAuth.auth_data)
+        api.trafficLogs(currentAuth.auth_data),
+        api.userConfig(currentAuth.auth_data).catch(() => null)
       ]);
 
       setUser(info);
@@ -173,6 +180,7 @@ function App() {
       setServers(nodeList);
       setStats(stat);
       setTrafficLogs(logs);
+      setPortalConfig(config);
     } catch (error) {
       const text = error instanceof Error ? error.message : '加载失败';
       setMessage(text);
@@ -586,10 +594,11 @@ function App() {
         {page === 'plans' && <PlansPage plans={plans} loading={loading} busyPlanId={busyPlanId} onCheckout={startCheckout} />}
         {page === 'redeem' && (
           isLoggedIn ? (
-            <GiftCardRedeemPage onRedeem={redeemGiftCard} onSetup={() => go('setup')} />
+            <GiftCardRedeemPage telegramLink={telegramLink} onRedeem={redeemGiftCard} onSetup={() => go('setup')} />
           ) : (
             <section className="page-stack">
               <PageTitle eyebrow="Gift Card" title="兑换礼品卡" subtitle="登录后输入兑换码，套餐会自动开通到当前账号。" />
+              <ContactAdminPanel telegramLink={telegramLink} compact />
               <LoginPanel onLogin={handleLogin} onRegister={handleRegister} onConnectionTest={handleConnectionTest} />
             </section>
           )
@@ -617,6 +626,7 @@ function App() {
             onResetSecurity={resetSecurity}
             onPayOrder={continueCheckout}
             onRedeemGiftCard={redeemGiftCard}
+            telegramLink={telegramLink}
             entryView={accountEntryView}
           />
         )}
@@ -1006,15 +1016,17 @@ function SetupPage({ subscribe, hasSubscription, onCopyProfile }: { subscribe: S
   );
 }
 
-function GiftCardRedeemPage({ onRedeem, onSetup }: { onRedeem: (code: string) => Promise<GiftCardRedeemResult>; onSetup: () => void }) {
+function GiftCardRedeemPage({ telegramLink, onRedeem, onSetup }: { telegramLink: string; onRedeem: (code: string) => Promise<GiftCardRedeemResult>; onSetup: () => void }) {
   return (
     <section className="page-stack redeem-layout">
-      <PageTitle eyebrow="Gift Card" title="兑换礼品卡" subtitle="输入管理员发放的兑换码，套餐会自动绑定到当前账号。" />
+      <PageTitle eyebrow="Gift Card" title="兑换礼品卡" subtitle="没有兑换码时，先通过 Telegram 联系管理员获取。" />
       <div className="redeem-grid">
         <GiftCardRedeemPanel onRedeem={onRedeem} />
         <div className="panel redeem-side-panel">
+          <ContactAdminPanel telegramLink={telegramLink} compact />
           <PanelHeader icon={PackageCheck} title="兑换后怎么用" action="自动生效" />
           <div className="timeline">
+            <Step done={Boolean(telegramLink)} title="联系管理员" body="通过 Telegram 获取礼品卡兑换码，再回到当前页面输入。" />
             <Step done title="输入兑换码" body="兑换码只需要使用一次，请确认登录的是要开通套餐的账号。" />
             <Step done title="套餐开通" body="兑换成功后订阅状态会自动刷新，不需要再创建支付订单。" />
             <Step title="导入客户端" body="套餐生效后复制订阅链接，导入到你的常用客户端。" />
@@ -1023,6 +1035,27 @@ function GiftCardRedeemPage({ onRedeem, onSetup }: { onRedeem: (code: string) =>
         </div>
       </div>
     </section>
+  );
+}
+
+function ContactAdminPanel({ telegramLink, compact = false }: { telegramLink: string; compact?: boolean }) {
+  const hasLink = isWebUrl(telegramLink);
+
+  return (
+    <div className={compact ? 'contact-admin compact' : 'panel contact-admin'}>
+      <div className="contact-admin-icon"><MessageCircle size={22} /></div>
+      <div>
+        <strong>没有兑换码？</strong>
+        <p>{hasLink ? '联系 Telegram 管理员购买或获取礼品卡兑换码。' : '请联系管理员购买或获取礼品卡兑换码。'}</p>
+      </div>
+      {hasLink ? (
+        <a className="primary-button wide" href={telegramLink} target="_blank" rel="noreferrer">
+          联系 Telegram<ExternalLink size={18} />
+        </a>
+      ) : (
+        <button className="secondary-button wide" disabled>等待管理员配置联系方式</button>
+      )}
+    </div>
   );
 }
 
@@ -1104,6 +1137,7 @@ function AccountPage(props: {
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
   onRedeemGiftCard: (code: string) => Promise<GiftCardRedeemResult>;
+  telegramLink: string;
   entryView: AccountView;
 }) {
   const [view, setView] = React.useState<AccountView>(props.entryView);
@@ -1282,6 +1316,7 @@ function AccountPage(props: {
             onResetSecurity={props.onResetSecurity}
             onPayOrder={props.onPayOrder}
             onRedeemGiftCard={props.onRedeemGiftCard}
+            telegramLink={props.telegramLink}
           />
         </div>
       </div>
@@ -1308,7 +1343,8 @@ function AccountDetailPanel({
   onCreateTicket,
   onResetSecurity,
   onPayOrder,
-  onRedeemGiftCard
+  onRedeemGiftCard,
+  telegramLink
 }: {
   view: AccountView;
   user: UserInfo | null;
@@ -1329,6 +1365,7 @@ function AccountDetailPanel({
   onResetSecurity: () => void;
   onPayOrder: (order: OrderRecord) => Promise<void>;
   onRedeemGiftCard: (code: string) => Promise<GiftCardRedeemResult>;
+  telegramLink: string;
 }) {
   const [payingTradeNo, setPayingTradeNo] = React.useState<string | null>(null);
   const [ticketSubject, setTicketSubject] = React.useState('');
@@ -1454,7 +1491,10 @@ function AccountDetailPanel({
       )}
 
       {!busy && view === 'redeem' && (
-        <GiftCardRedeemPanel onRedeem={onRedeemGiftCard} framed={false} />
+        <div className="account-redeem-stack">
+          <ContactAdminPanel telegramLink={telegramLink} compact />
+          <GiftCardRedeemPanel onRedeem={onRedeemGiftCard} framed={false} />
+        </div>
       )}
 
       {!busy && view === 'security' && (
