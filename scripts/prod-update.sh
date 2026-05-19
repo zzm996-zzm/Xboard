@@ -77,6 +77,11 @@ echo "==> Clearing caches"
 echo "==> Applying database migrations, plugin updates, and theme refresh"
 "${COMPOSE[@]}" exec -T xboard php artisan xboard:update
 
+if [[ -d storage/theme/Northline ]]; then
+  echo "==> Syncing Northline theme into public web assets"
+  "${COMPOSE[@]}" exec -T xboard sh -lc 'mkdir -p /www/public/theme/Northline && cp -a /www/storage/theme/Northline/. /www/public/theme/Northline/'
+fi
+
 echo "==> Clearing caches again"
 "${COMPOSE[@]}" exec -T xboard php artisan optimize:clear >/dev/null || true
 
